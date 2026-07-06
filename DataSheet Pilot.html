@@ -828,17 +828,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     function availableUnitTargetsForField(field) {
       const candidates = UNIT_RULE_CANDIDATES[field] || [];
       if (!candidates.length) return [];
-      const scopedFiles = files.filter(file => file.selected);
-      const sourceFiles = scopedFiles.length ? scopedFiles : files;
       const targets = new Set();
-      sourceFiles.forEach(file => {
-        const units = file.units && file.units[field] ? file.units[field] : [];
-        units.forEach(unit => {
-          candidates.forEach(candidate => {
-            if (unitMatches(unit, candidate.from)) targets.add(targetUnit(candidate.rule));
-          });
-        });
-      });
+      candidates.forEach(candidate => targets.add(targetUnit(candidate.rule)));
       return [...targets];
     }
 
