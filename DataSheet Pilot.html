@@ -750,7 +750,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     const CONNECTION_POSITIONS = ["F1", "F2", "F3", "F4", "L1", "L2", "L3", "L4"];
     const CONNECTION_A_SIZES = ["25A", "32A", "40A", "50A", "65A", "80A", "100A", "125A", "150A", "200A", "250A", "300A"];
     const CONNECTION_INCH_SIZES = ["1\"", "1-1/4\"", "1-1/2\"", "2\"", "2-1/2\"", "3\"", "4\"", "5\"", "6\"", "8\"", "10\"", "12\""];
-    const CONNECTION_TYPES = ["UnLined", "MetalLined", "RubberLined", "SORF", "SOFF", "WNRF", "LapJoint"];
+    const CONNECTION_TYPES = ["UnLined", "MetalLined", "Stud Type", "RubberLined", "SORF", "SOFF", "WNRF", "LapJoint"];
     const CONNECTION_BASE_MATERIALS = ["304", "316L", "316", "Titanium", "C-276"];
     const CONNECTION_FLANGE_MATERIALS = ["Auto", "-", "C.S.", "STS 304", "STS 316L", "STS 316", "A182 F304", "A182 F316L", "A182 F316"];
     const CONNECTION_NOZZLE_MATERIALS = ["Auto", "-", "SPPS38", "STS 304", "STS 316L", "STS 316", "A312 TP304", "A312 TP316L", "A312 TP316", "Titanium"];
@@ -967,9 +967,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if (!connectionMaterialVisible(type, component)) return "-";
       const manual = String(explicitValue || "Auto");
       if (manual && manual !== "Auto") return manual;
-      const lined = ["MetalLined", "LapJoint"].includes(type);
+      const lined = ["MetalLined", "Stud Type", "LapJoint"].includes(type);
       if (component === "flange") {
-        if (["SORF", "SOFF", "WNRF", "LapJoint", "MetalLined", "RubberLined"].includes(type)) return "C.S.";
+        if (["SORF", "SOFF", "WNRF", "LapJoint", "MetalLined", "Stud Type", "RubberLined"].includes(type)) return "C.S.";
         return "-";
       }
       if (component === "nozzle") {
