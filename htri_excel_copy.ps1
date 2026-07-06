@@ -48,6 +48,13 @@ function PutDash($sheet, [string]$addr, $value) {
   $sheet.Range($addr).Value2 = $s
 }
 
+function PutDashNumber($sheet, [string]$addr, $value) {
+  PutDash $sheet $addr $value
+  if (([string]$sheet.Range($addr).Value2) -ne '-') {
+    try { $sheet.Range($addr).NumberFormat = '0.###' } catch {}
+  }
+}
+
 function Addr([bool]$condition, [string]$whenTrue, [string]$whenFalse) {
   if ($condition) { return $whenTrue }
   return $whenFalse
@@ -161,6 +168,13 @@ function Display-Solder([string]$material, [string]$model) {
   return 'Copper'
 }
 
+function Gphe-ConnectionText([string]$model) {
+  $size = '50A'
+  if ($model -match '^M70M$') { $size = '65A' }
+  elseif ($model -match '^M(\d{2,3})[A-Z]*$') { $size = $matches[1] + 'A' }
+  return "KS 10k $size Metal Lined With STS316 (Stud Type)"
+}
+
 function Heat-Factor([string]$unit) {
   $u = (([string]$unit).Trim('(',')',' ') -replace '\s+', '').ToLowerInvariant()
   switch -Regex ($u) {
@@ -256,6 +270,10 @@ function Apply-HtriOverrides($ds, $item, [bool]$isGphe) {
   $designUnit = Override-Value $item 'Design / Test Pressure Unit' ''
   if (-not [string]::IsNullOrWhiteSpace([string]$designUnit)) { Put $ds (Addr $isGphe 'J46' 'J41') (Unit-Text $designUnit) }
   Convert-Cells $ds @((Addr $isGphe 'E46' 'C41'), (Addr $isGphe 'G46' 'G41')) (Addr $isGphe 'J46' 'J41') (Override-Value $item 'Design / Test Pressure Target Unit' '') 'pressure'
+
+  if ($isGphe) {
+    Put $ds 'C40' (Override-Value $item 'Gasket Material' (T $ds 'C40'))
+  }
 }
 
 function Apply-HtriValues($target, $source, $item, [string]$kind) {
@@ -331,25 +349,25 @@ function Apply-HtriValues($target, $source, $item, [string]$kind) {
   Put $ds (Addr $isGphe 'G23' 'G22') $refCold
   Put $ds (Addr $isGphe 'J23' 'J22') (T $api 'I22')
 
-  PutDash $ds (Addr $isGphe 'C24' 'C23') (T $api 'M25')
-  PutDash $ds (Addr $isGphe 'E24' 'E23') (T $api 'N25')
-  PutDash $ds (Addr $isGphe 'G24' 'G23') (T $api 'V25')
-  PutDash $ds (Addr $isGphe 'I24' 'I23') (T $api 'X25')
+  PutDashNumber $ds (Addr $isGphe 'C24' 'C23') (First-NumberText @((T $api 'L25'), (T $api 'Q25'), (T $api 'M25')))
+  PutDashNumber $ds (Addr $isGphe 'E24' 'E23') (First-NumberText @((T $api 'M25'), (T $api 'R25'), (T $api 'N25')))
+  PutDashNumber $ds (Addr $isGphe 'G24' 'G23') (First-NumberText @((T $api 'V25'), (T $api 'AA25'), (T $api 'W25')))
+  PutDashNumber $ds (Addr $isGphe 'I24' 'I23') (First-NumberText @((T $api 'W25'), (T $api 'AB25'), (T $api 'X25')))
   Put $ds (Addr $isGphe 'J24' 'J23') (T $api 'I25')
-  PutDash $ds (Addr $isGphe 'C25' 'C24') (T $api 'M26')
-  PutDash $ds (Addr $isGphe 'E25' 'E24') (T $api 'N26')
-  PutDash $ds (Addr $isGphe 'G25' 'G24') (T $api 'V26')
-  PutDash $ds (Addr $isGphe 'I25' 'I24') (T $api 'X26')
+  PutDashNumber $ds (Addr $isGphe 'C25' 'C24') (First-NumberText @((T $api 'L26'), (T $api 'Q26'), (T $api 'M26')))
+  PutDashNumber $ds (Addr $isGphe 'E25' 'E24') (First-NumberText @((T $api 'M26'), (T $api 'R26'), (T $api 'N26')))
+  PutDashNumber $ds (Addr $isGphe 'G25' 'G24') (First-NumberText @((T $api 'V26'), (T $api 'AA26'), (T $api 'W26')))
+  PutDashNumber $ds (Addr $isGphe 'I25' 'I24') (First-NumberText @((T $api 'W26'), (T $api 'AB26'), (T $api 'X26')))
   Put $ds (Addr $isGphe 'J25' 'J24') (T $api 'I26')
-  PutDash $ds (Addr $isGphe 'C26' 'C25') (T $api 'M27')
-  PutDash $ds (Addr $isGphe 'E26' 'E25') (T $api 'N27')
-  PutDash $ds (Addr $isGphe 'G26' 'G25') (T $api 'V27')
-  PutDash $ds (Addr $isGphe 'I26' 'I25') (T $api 'X27')
+  PutDashNumber $ds (Addr $isGphe 'C26' 'C25') (First-NumberText @((T $api 'L27'), (T $api 'Q27'), (T $api 'M27')))
+  PutDashNumber $ds (Addr $isGphe 'E26' 'E25') (First-NumberText @((T $api 'M27'), (T $api 'R27'), (T $api 'N27')))
+  PutDashNumber $ds (Addr $isGphe 'G26' 'G25') (First-NumberText @((T $api 'V27'), (T $api 'AA27'), (T $api 'W27')))
+  PutDashNumber $ds (Addr $isGphe 'I26' 'I25') (First-NumberText @((T $api 'W27'), (T $api 'AB27'), (T $api 'X27')))
   Put $ds (Addr $isGphe 'J26' 'J25') (T $api 'I27')
-  PutDash $ds (Addr $isGphe 'C27' 'C26') (T $api 'M28')
-  PutDash $ds (Addr $isGphe 'E27' 'E26') (T $api 'N28')
-  PutDash $ds (Addr $isGphe 'G27' 'G26') (T $api 'V28')
-  PutDash $ds (Addr $isGphe 'I27' 'I26') (T $api 'X28')
+  PutDashNumber $ds (Addr $isGphe 'C27' 'C26') (First-NumberText @((T $api 'L28'), (T $api 'Q28'), (T $api 'M28')))
+  PutDashNumber $ds (Addr $isGphe 'E27' 'E26') (First-NumberText @((T $api 'M28'), (T $api 'R28'), (T $api 'N28')))
+  PutDashNumber $ds (Addr $isGphe 'G27' 'G26') (First-NumberText @((T $api 'V28'), (T $api 'AA28'), (T $api 'W28')))
+  PutDashNumber $ds (Addr $isGphe 'I27' 'I26') (First-NumberText @((T $api 'W28'), (T $api 'AB28'), (T $api 'X28')))
   Put $ds (Addr $isGphe 'J27' 'J26') 'mN-s/m2'
 
   Put $ds (Addr $isGphe 'C33' 'C30') (First-NumberText @((T $api 'F11'), (T $out 'S27')))
@@ -381,6 +399,11 @@ function Apply-HtriValues($target, $source, $item, [string]$kind) {
   $maxTemp = [Math]::Ceiling((Max-Number @((T $out 'G14'), (T $out 'H14'), (T $out 'M14'), (T $out 'N14'), (T $out 'Q14'), (T $out 'R14'), (T $out 'S14'), (T $out 'T14'), (T $fin 'I14'), (T $fin 'J14'), (T $fin 'M14'), (T $fin 'N14'), (T $fin 'O14'), (T $fin 'P14'), (T $fin 'Q14'), (T $fin 'R14'), (T $api 'M22'), (T $api 'R22'), (T $api 'W22'), (T $api 'AB22')) 100.0))
 
   if ($isGphe) {
+    Put $ds 'C18' (First-NumberText @((T $fin 'J20'), (T $out 'H20')))
+    Put $ds 'E18' (First-NumberText @((T $fin 'N20'), (T $out 'N20')))
+    Put $ds 'G18' (First-NumberText @((T $fin 'P20'), (T $out 'R20')))
+    Put $ds 'I18' (First-NumberText @((T $fin 'R20'), (T $out 'T20')))
+    Put $ds 'J18' (Unit-Text (First-NonBlank @((T $fin 'I20'), 'm/s')))
     Put $ds 'C31' $parallel
     Put $ds 'F31' $series
     Put $ds 'G31' $totalUnits
@@ -390,6 +413,10 @@ function Apply-HtriValues($target, $source, $item, [string]$kind) {
     Put $ds 'G41' ((T $api 'X37') + ' x ' + (Add-One (T $api 'AA37')))
     Put $ds 'C42' ((T $api 'I49') + ' ' + (T $api 'J49'))
     Put $ds 'G42' ((T $api 'S49') + ' ' + (T $api 'T49'))
+    Put $ds 'C40' 'NBR'
+    Put $ds 'C42' (Gphe-ConnectionText $model)
+    Put $ds 'G42' (Gphe-ConnectionText $model)
+    Put $ds 'C43' 'Stainless steel'
     Put $ds 'D45' $minTemp
     Put $ds 'F45' '/'
     Put $ds 'H45' $maxTemp

@@ -1938,10 +1938,11 @@
     const HTRI_FIELD_GROUPS = {
       "Basic": ["Customer", "Project Name", "Contact", "Service", "Item No."],
       "Duty Requirements": ["Media", "Heat capacity", "Operating Pressure", "Pressure drop"],
-      "Unit Data": ["Soldering Material", "Design Temperature", "Design / Test Pressure"]
+      "Unit Data": ["Soldering Material", "Gasket Material", "Design Temperature", "Design / Test Pressure"]
     };
     const HTRI_FIELD_AVAILABILITY = {
-      "Soldering Material": ["BPHE"]
+      "Soldering Material": ["BPHE"],
+      "Gasket Material": ["GPHE"]
     };
     const HTRI_EDIT_FIELDS = Object.values(HTRI_FIELD_GROUPS).flat();
     const htriRowsEl = document.getElementById("htriRows");
@@ -2282,6 +2283,8 @@
         htriDynamicForm.innerHTML = inputRow("Hot Side", "hot") + inputRow("Cold Side", "cold");
       } else if (field === "Soldering Material") {
         htriDynamicForm.innerHTML = selectRow("Material", "value", ["Copper", "Stainless Steel"]);
+      } else if (field === "Gasket Material") {
+        htriDynamicForm.innerHTML = selectRow("Material", "value", ["NBR", "EPDM", "Viton-G"]);
       } else if (["Operating Pressure", "Pressure drop"].includes(field)) {
         htriDynamicForm.innerHTML = html + inputRow("Hot Side", "hot") + inputRow("Cold Side", "cold") + inputRow("Unit", "unit");
       } else if (field === "Design Temperature") {
@@ -2481,6 +2484,8 @@
         } else if (["Design Temperature", "Design / Test Pressure", "Heat capacity"].includes(task.field)) {
           if (task.value) overrides[task.field] = task.value;
           if (task.unit) overrides[`${task.field} Unit`] = task.unit;
+        } else if (task.field === "Gasket Material" && task.value) {
+          overrides["Gasket Material"] = task.value;
         } else if (task.value) {
           overrides[task.field] = task.value;
         }
