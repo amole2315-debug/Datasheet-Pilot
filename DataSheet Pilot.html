@@ -728,6 +728,14 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       { unit: "kcal/kg", from: ["kcal/kg"] },
       { unit: "kJ/kg", from: ["kJ/kg"] }
     ];
+    const CONNECTION_STANDARDS = ["KS 10k", "KS 16k", "KS 20k", "JIS 10k", "JIS 16k", "JIS 20k", "PN16", "PN20", "PN25", "ANSI 150#", "ANSI 300#"];
+    const CONNECTION_POSITIONS = ["F1", "F2", "F3", "F4", "L1", "L2", "L3", "L4"];
+    const CONNECTION_SIZES = ["25A(1B)", "32A(1-1/4B)", "40A(1-1/2B)", "50A(2B)", "65A(2-1/2B)", "80A(3B)", "100A(4B)", "125A(5B)", "150A(6B)", "200A(8B)", "250A(10B)", "300A(12B)"];
+    const CONNECTION_TYPES = ["UnLined", "MetalLined", "RubberLined", "SORF", "SOFF", "WNRF", "LapJoint"];
+    const CONNECTION_BASE_MATERIALS = ["304", "316L", "316", "Titanium", "C-276"];
+    const CONNECTION_FLANGE_MATERIALS = ["Auto", "-", "C.S.", "STS 304", "STS 316L", "STS 316", "A182 F304", "A182 F316L", "A182 F316"];
+    const CONNECTION_NOZZLE_MATERIALS = ["Auto", "-", "SPPS38", "STS 304", "STS 316L", "STS 316", "A312 TP304", "A312 TP316L", "A312 TP316", "Titanium"];
+    const CONNECTION_LINING_MATERIALS = ["Auto", "-", "STS 304", "STS 316L", "STS 316", "A240-304", "A240-316L", "A240-316", "Titanium"];
     const UNIT_RULE_CANDIDATES = {
       "Heat capacity": heatCapacityRules(),
       "Mass flow rate": unitRules(MASS_FLOW_UNITS),
@@ -824,6 +832,96 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
     function targetUnit(rule) {
       return String(rule || "").split(" -> ")[1] || "";
+    }
+
+    function connectionFamily(standard) {
+      const text = String(standard || "").toUpperCase();
+      if (text.includes("ANSI") || text.includes("ASME")) return "ASME";
+      if (text.includes("PN") || text.includes("DIN")) return "DIN";
+      return "KSJIS";
+    }
+
+    function connectionSizeForStandard(size, standard) {
+      const family = connectionFamily(standard);
+      if (family !== "ASME") return size || "";
+      const match = String(size || "").match(/\(([^)]+?)B\)/i);
+      return match ? `${match[1]}"` : size || "";
+    }
+
+    function plateMaterialForStandard(base, standard) {
+      const family = connectionFamily(standard);
+      const key = String(base || "316L");
+      const maps = {
+        ASME: {
+          "304": "A240-304",
+          "316L": "A240-316L",
+          "316": "A240-316",
+          "Titanium": "SB-265 Gr.2",
+          "C-276": "SB-575 N10276"
+        },
+        KSJIS: {
+          "304": "STS 304",
+          "316L": "STS 316L",
+          "316": "STS 316",
+          "Titanium": "Titanium",
+          "C-276": "C-276"
+        },
+        DIN: {
+          "304": "1.4301",
+          "316L": "1.4404",
+          "316": "1.4401",
+          "Titanium": "3.7035",
+          "C-276": "2.4819"
+        }
+      };
+      return maps[family][key] || key;
+    }
+
+    function connectionComponentMaterial(base, standard, component) {
+      const family = connectionFamily(standard);
+      const key = String(base || "316L");
+      if (component === "flange") {
+        if (family === "ASME") {
+          return ({ "304": "A182 F304", "316L": "A182 F316L", "316": "A182 F316" })[key] || plateMaterialForStandard(key, standard);
+        }
+        if (family === "DIN") return plateMaterialForStandard(key, standard);
+        return ({ "304": "STS 304", "316L": "STS 316L", "316": "STS 316" })[key] || plateMaterialForStandard(key, standard);
+      }
+      if (component === "nozzle") {
+        if (family === "ASME") {
+          return ({ "304": "A312 TP304", "316L": "A312 TP316L", "316": "A312 TP316" })[key] || plateMaterialForStandard(key, standard);
+        }
+        if (family === "DIN") return plateMaterialForStandard(key, standard);
+        return ({ "304": "STS 304", "316L": "STS 316L", "316": "STS 316" })[key] || plateMaterialForStandard(key, standard);
+      }
+      return plateMaterialForStandard(key, standard);
+    }
+
+    function frameMaterialForStandard(frame, standard) {
+      const value = String(frame || "C.S").trim();
+      if (value.toUpperCase().replace(/\./g, "") === "CS" && connectionFamily(standard) === "ASME") return "SA-516 Gr.70";
+      if (value.toUpperCase().replace(/\./g, "") === "CS") return "C.S";
+      return value;
+    }
+
+    function autoConnectionMaterial(type, standard, baseMaterial, component, explicitValue) {
+      const manual = String(explicitValue || "Auto");
+      if (manual && manual !== "Auto") return manual;
+      const lined = ["MetalLined", "LapJoint"].includes(type);
+      if (component === "flange") {
+        if (["SORF", "SOFF", "WNRF", "LapJoint", "MetalLined", "RubberLined"].includes(type)) return "C.S.";
+        return "-";
+      }
+      if (component === "nozzle") {
+        if (lined) return connectionComponentMaterial(baseMaterial, standard, "nozzle");
+        if (type === "RubberLined") return connectionFamily(standard) === "ASME" ? "SA-106 Gr.B" : "SPPS38";
+        return "-";
+      }
+      if (component === "lining") {
+        if (lined) return connectionComponentMaterial(baseMaterial, standard, "lining");
+        return "-";
+      }
+      return "-";
     }
 
     function availableUnitTargetsForField(field) {
@@ -1077,14 +1175,34 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       `;
     }
 
-    function selectRow(label, key, values) {
+    function selectRow(label, key, values, selectedValue = "") {
       return `
         <div class="field-row">
           <label for="${key}">${label}</label>
           <select id="${key}" data-key="${key}">
-            ${values.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("")}
+            ${values.map(value => `<option value="${escapeHtml(value)}"${value === selectedValue ? " selected" : ""}>${escapeHtml(value)}</option>`).join("")}
           </select>
         </div>
+      `;
+    }
+
+    function connectionFormHtml() {
+      const positionRows = [
+        ["Hot In Position", "hotInPosition", "F2"],
+        ["Hot Out Position", "hotOutPosition", "F3"],
+        ["Cold In Position", "coldInPosition", "F4"],
+        ["Cold Out Position", "coldOutPosition", "F1"]
+      ].map(([label, key, value]) => selectRow(label, key, CONNECTION_POSITIONS, value)).join("");
+      return `
+        ${selectRow("Standard", "standard", CONNECTION_STANDARDS)}
+        ${selectRow("Size", "size", CONNECTION_SIZES, "50A(2B)")}
+        ${selectRow("Type", "connectionType", CONNECTION_TYPES)}
+        ${selectRow("Plate base", "connectionPlateMaterial", CONNECTION_BASE_MATERIALS, "316L")}
+        ${selectRow("Frame material", "frameMaterial", ["C.S"])}
+        ${selectRow("Flange Material", "flangeMaterial", CONNECTION_FLANGE_MATERIALS)}
+        ${selectRow("Nozzle Material", "nozzleMaterial", CONNECTION_NOZZLE_MATERIALS)}
+        ${selectRow("Lining Material", "liningMaterial", CONNECTION_LINING_MATERIALS)}
+        ${positionRows}
       `;
     }
 
@@ -1116,9 +1234,12 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if (mode === "Convert unit") {
         return selectRow("Target unit", "unitTarget", unitTargets.length ? unitTargets : [NO_UNIT_TARGET]);
       }
-      if (["Media", "Connection Type", "Temperature inlet", "Temperature outlet", "Mass flow rate", "Volume flowrate", "Operating Pressure", "Pressure drop"].includes(field)) {
+      if (field === "Connection Type") {
+        return connectionFormHtml();
+      }
+      if (["Media", "Temperature inlet", "Temperature outlet", "Mass flow rate", "Volume flowrate", "Operating Pressure", "Pressure drop"].includes(field)) {
         let html = inputRow("Hot Side", "hot") + inputRow("Cold Side", "cold");
-        if (!["Media", "Connection Type"].includes(field)) html += inputRow("Unit", "unit");
+        if (field !== "Media") html += inputRow("Unit", "unit");
         return html;
       }
       if (field === "Design / Test Pressure") {
@@ -1247,6 +1368,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         ? ` (#${targetNumbers.join(", #")})`
         : "";
       if (task.mode === "convert") return `${task.field}: target ${task.unitTarget}${scope}`;
+      if (task.field === "Connection Type") {
+        const detail = [task.standard, task.size, task.connectionType, task.connectionPlateMaterial].filter(Boolean).join(" | ");
+        return `${task.field}${detail ? `: ${detail}` : ""}${scope}`;
+      }
       const parts = [task.field];
       ["value", "hot", "cold", "unit"].forEach(key => {
         if (task[key]) parts.push(`${key}=${task[key]}`);
@@ -1395,7 +1520,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           return this.setTwoSidedRow(doc, field, task.hot || "", task.cold || "", task.unit || "");
         }
         if (field === "Connection Type") {
-          return this.setTwoSidedRow(doc, field, task.hot || "", task.cold || "", "");
+          return this.applyConnectionTask(doc, task);
         }
         if (["Design Temperature", "Design / Test Pressure", "Heat transfer area", "Number of plates", "Surface margin", "Plate material", "Gasket Material"].includes(field)) {
           const label = field === "Design Temperature" ? "Design temperature" : field;
@@ -1411,6 +1536,34 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           return this.convertPropertyUnitGroup(doc, task.value || "J");
         }
         return false;
+      }
+
+      applyConnectionTask(doc, task) {
+        const standard = task.standard || "KS 10k";
+        const baseMaterial = task.connectionPlateMaterial || "316L";
+        const type = task.connectionType || "UnLined";
+        const size = connectionSizeForStandard(task.size || "50A(2B)", standard);
+        const positions = [
+          task.hotInPosition || "F2",
+          task.hotOutPosition || "F3",
+          task.coldInPosition || "F4",
+          task.coldOutPosition || "F1"
+        ];
+        const same = value => [value, value, value, value];
+        const flange = autoConnectionMaterial(type, standard, baseMaterial, "flange", task.flangeMaterial);
+        const nozzle = autoConnectionMaterial(type, standard, baseMaterial, "nozzle", task.nozzleMaterial);
+        const lining = autoConnectionMaterial(type, standard, baseMaterial, "lining", task.liningMaterial);
+        let changed = false;
+        if (this.setConnectionRow(doc, "Position", positions)) changed = true;
+        if (this.setConnectionRow(doc, "Rating", same(standard))) changed = true;
+        if (this.setConnectionRow(doc, "Size", same(size))) changed = true;
+        if (this.setConnectionRow(doc, "Type", same(type))) changed = true;
+        if (this.setConnectionRow(doc, "Flange Material", same(flange))) changed = true;
+        if (this.setConnectionRow(doc, "Nozzle Material", same(nozzle))) changed = true;
+        if (this.setConnectionRow(doc, "Lining Material", same(lining))) changed = true;
+        if (this.setSingleRow(doc, "Plate material", plateMaterialForStandard(baseMaterial, standard), "")) changed = true;
+        if (this.setSingleRow(doc, "Frame material", frameMaterialForStandard(task.frameMaterial || "C.S", standard), "")) changed = true;
+        return changed;
       }
 
       convertPropertyUnitGroup(doc, family) {
@@ -1585,6 +1738,28 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
             this.applyKoreanFontIfNeeded(node, next);
             this.changes.push(["BPHE Model", old, next]);
             changed = true;
+          }
+        }
+        return changed;
+      }
+
+      setConnectionRow(doc, label, values) {
+        let changed = false;
+        for (const row of this.rows(doc)) {
+          const cells = this.cells(row);
+          for (let i = 0; i < cells.length; i += 1) {
+            if (cleanLabel(this.cellText(cells[i])) !== cleanLabel(label)) continue;
+            values.forEach((value, offset) => {
+              const cell = cells[i + 1 + offset];
+              if (!cell || value === undefined || value === null || value === "") return;
+              const old = this.cellText(cell);
+              if (old !== value) {
+                this.setCellText(cell, value);
+                this.changes.push([`Connection ${label}`, old, value]);
+                changed = true;
+              }
+            });
+            return changed;
           }
         }
         return changed;
