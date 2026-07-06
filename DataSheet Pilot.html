@@ -494,7 +494,6 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           <div class="group-title">Task list</div>
           <div id="htriTaskList" class="task-list"></div>
           <div class="task-actions">
-            <button id="htriPreviewBtn">Preview</button>
             <button id="htriEditTaskBtn">Edit</button>
             <button id="htriRemoveTaskBtn">Remove</button>
           </div>
@@ -1806,6 +1805,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if (task.field === "Basic Info") return `${task.field}${scope}`;
       if (task.field === "Duty Values") return `${task.field}${scope}`;
       if (task.field === "Design Values") return `${task.field}${scope}`;
+      if (task.field === "Material") return `${task.field}${scope}`;
       if (task.field === "Unit Conversion") return `${task.unitField || "Unit"} -> ${task.unitTarget || ""}${scope}`;
       if (task.field === "Property Unit Group") return `${task.field}: ${task.value || "J"}${scope}`;
       if (isConnectionField(task.field)) {
@@ -2830,14 +2830,16 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     let htriSelectedTaskIndex = -1;
     let htriEditingTaskIndex = -1;
     const HTRI_FIELD_GROUPS = {
-      "Basic": ["Customer", "Project Name", "Contact", "Service", "Item No."],
-      "Duty Requirements": ["Media", "Heat capacity", "Operating Pressure", "Pressure drop"],
-      "Unit Data": ["Soldering Material", "Gasket Material", "Design Temperature", "Design / Test Pressure"]
+      "Basic": ["Basic Info"],
+      "Material": ["Material"],
+      "Duty": ["Duty Values"],
+      "Design": ["Design Values"],
+      "Unit Conversion": ["Unit Conversion"]
     };
-    const HTRI_FIELD_AVAILABILITY = {
-      "Soldering Material": ["BPHE"]
-    };
-    const HTRI_EDIT_FIELDS = Object.values(HTRI_FIELD_GROUPS).flat();
+    const HTRI_FIELD_AVAILABILITY = {};
+    const HTRI_BASIC_FIELDS = ["Customer", "Project Name", "Contact", "Service", "Item No."];
+    const HTRI_LEGACY_EDIT_FIELDS = ["Customer", "Project Name", "Contact", "Service", "Item No.", "Media", "Heat capacity", "Operating Pressure", "Pressure drop", "Soldering Material", "Gasket Material", "Design Temperature", "Design / Test Pressure"];
+    const HTRI_EDIT_FIELDS = [...Object.values(HTRI_FIELD_GROUPS).flat(), ...HTRI_LEGACY_EDIT_FIELDS];
     const htriRowsEl = document.getElementById("htriRows");
     const htriStatus = document.getElementById("htriStatus");
     const htriFieldSelect = document.getElementById("htriFieldSelect");
@@ -2953,7 +2955,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       setSheetValue(ws, "C11", summary["Media Hot"]);
       setSheetValue(ws, "G11", summary["Media Cold"]);
       setSheetValue(ws, "E12", summary["Heat Exchanged"]);
-      setSheetValue(ws, "J12", "(kcal/hr)");
+      setSheetValue(ws, "J12", `(${summary["Heat Exchanged Unit"] || "kcal/hr"})`);
       setSheetValue(ws, "C13", flow[0]);
       setSheetValue(ws, "G13", flow[2] || flow[1]);
       setSheetValue(ws, "J13", `(${summary["Total Fluid Flow Unit"] || "kg/hr"})`);
@@ -3183,6 +3185,75 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       "Pressure drop": ["Pa", "kPa", "MPa", "bar", "kgf/cm²", "atm", "psi", "torr"],
       "Design / Test Pressure": ["Pa_G", "kPa_G", "MPa_G", "bar_G", "kgf_cm2_G", "atm_G", "psi_G", "torr_G", "Pa_A", "kPa_A", "MPa_A", "bar_A", "kgf_cm2_A", "atm_A", "psi_A", "torr_A"]
     };
+    const HTRI_UNIT_CONVERSION_FIELDS = Object.keys(HTRI_CONVERT_UNITS);
+
+    function htriBasicInfoFormHtml() {
+      return HTRI_BASIC_FIELDS.map(field => inputRow(field, `htriBasic_${fieldKey(field)}`)).join("");
+    }
+
+    function htriMaterialFormHtml() {
+      const kinds = selectedKinds(htriFiles);
+      const showSoldering = !kinds.length || kinds.includes("BPHE");
+      return `
+        <div class="kind-summary">Selected: ${escapeHtml(kinds.length ? kinds.join(" + ") : "None")}</div>
+        ${showSoldering ? selectRow("Soldering Material", "htriSolderingMaterial", ["", "Copper", "Stainless Steel"]) : ""}
+        ${selectRow("Gasket Material", "htriGasketMaterial", ["", "NBR", "EPDM", "Viton", "Viton-G"])}
+      `;
+    }
+
+    function htriDutyValuesFormHtml() {
+      const heatUnits = ["", ...HTRI_CONVERT_UNITS["Heat capacity"]];
+      const pressureUnits = ["", ...HTRI_CONVERT_UNITS["Operating Pressure"]];
+      const dropUnits = ["", ...HTRI_CONVERT_UNITS["Pressure drop"]];
+      return `
+        <div class="duty-grid">
+          <div></div>
+          <div class="duty-head">Hot / Value</div>
+          <div class="duty-head">Cold</div>
+          <div class="duty-head">Unit</div>
+          <div class="duty-label">Media</div>
+          <div class="duty-cell"><textarea data-key="htriMediaHot"></textarea></div>
+          <div class="duty-cell"><textarea data-key="htriMediaCold"></textarea></div>
+          <div class="duty-cell"></div>
+          <div class="duty-label">Heat capacity</div>
+          <div class="duty-cell"><textarea data-key="htriHeatCapacityValue"></textarea></div>
+          <div class="duty-cell"></div>
+          <div class="duty-cell"><select data-key="htriHeatCapacityUnit">${heatUnits.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("")}</select></div>
+          <div class="duty-label">Operating Pressure</div>
+          <div class="duty-cell"><textarea data-key="htriOperatingPressureHot"></textarea></div>
+          <div class="duty-cell"><textarea data-key="htriOperatingPressureCold"></textarea></div>
+          <div class="duty-cell"><select data-key="htriOperatingPressureUnit">${pressureUnits.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("")}</select></div>
+          <div class="duty-label">Pressure drop</div>
+          <div class="duty-cell"><textarea data-key="htriPressureDropHot"></textarea></div>
+          <div class="duty-cell"><textarea data-key="htriPressureDropCold"></textarea></div>
+          <div class="duty-cell"><select data-key="htriPressureDropUnit">${dropUnits.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("")}</select></div>
+        </div>
+      `;
+    }
+
+    function htriDesignValuesFormHtml() {
+      const pressureUnits = ["", ...HTRI_CONVERT_UNITS["Design / Test Pressure"]];
+      return `
+        <div class="duty-grid design-grid">
+          <div></div>
+          <div class="duty-head">Value</div>
+          <div class="duty-head">Unit</div>
+          <div class="duty-label">Design Temperature</div>
+          <div class="duty-cell"><textarea data-key="htriDesignTemperatureValue" placeholder="0 / 100"></textarea></div>
+          <div class="duty-cell"><select data-key="htriDesignTemperatureUnit"><option value=""></option><option value="Deg C">Deg C</option></select></div>
+          <div class="duty-label">Design / Test Pressure</div>
+          <div class="duty-cell"><textarea data-key="htriDesignPressureValue" placeholder="10 / 13"></textarea></div>
+          <div class="duty-cell"><select data-key="htriDesignPressureUnit">${pressureUnits.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("")}</select></div>
+        </div>
+      `;
+    }
+
+    function htriUnitConversionFormHtml() {
+      return `
+        ${selectRow("Target row", "unitField", HTRI_UNIT_CONVERSION_FIELDS)}
+        ${selectRow("Target unit", "unitTarget", HTRI_CONVERT_UNITS[HTRI_UNIT_CONVERSION_FIELDS[0]])}
+      `;
+    }
 
     function renderHtriDynamicForm(modeOverride) {
       const field = htriFieldSelect.value;
@@ -3192,6 +3263,16 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if (canConvert) html += selectRow("Mode", "mode", ["Set value", "Convert unit"]);
       if (modeValue === "Convert unit" && canConvert) {
         htriDynamicForm.innerHTML = html + selectRow("Target unit", "unitTarget", HTRI_CONVERT_UNITS[field]);
+      } else if (field === "Basic Info") {
+        htriDynamicForm.innerHTML = htriBasicInfoFormHtml();
+      } else if (field === "Material") {
+        htriDynamicForm.innerHTML = htriMaterialFormHtml();
+      } else if (field === "Duty Values") {
+        htriDynamicForm.innerHTML = htriDutyValuesFormHtml();
+      } else if (field === "Design Values") {
+        htriDynamicForm.innerHTML = htriDesignValuesFormHtml();
+      } else if (field === "Unit Conversion") {
+        htriDynamicForm.innerHTML = htriUnitConversionFormHtml();
       } else if (field === "Media") {
         htriDynamicForm.innerHTML = inputRow("Hot Side", "hot") + inputRow("Cold Side", "cold");
       } else if (field === "Soldering Material") {
@@ -3214,6 +3295,18 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         mode.value = modeValue;
         mode.addEventListener("change", () => renderHtriDynamicForm(mode.value));
       }
+      if (field === "Unit Conversion") setupHtriUnitConversionForm();
+    }
+
+    function setupHtriUnitConversionForm() {
+      const field = htriDynamicForm.querySelector("[data-key='unitField']");
+      const target = htriDynamicForm.querySelector("[data-key='unitTarget']");
+      const refresh = () => {
+        const values = HTRI_CONVERT_UNITS[field ? field.value : ""] || [];
+        updateSelectOptions(target, values);
+      };
+      if (field) field.addEventListener("change", refresh);
+      refresh();
     }
 
     function collectHtriFormValues() {
@@ -3246,6 +3339,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       }
       renderHtriTasks();
       updateHtriApplyButton();
+      renderHtriPreview();
     }
 
     function renderHtriTasks() {
@@ -3380,27 +3474,119 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return match ? match[1] : "";
     }
 
+    function splitHtriPair(value) {
+      const parts = String(value || "").split(/\s*\/\s*|\s*,\s*/).map(part => part.trim());
+      return [parts[0] || "", parts[1] || ""];
+    }
+
+    function putOverride(overrides, key, value) {
+      if (Array.isArray(value) && value.every(item => String(item || "") === "")) return;
+      if (value !== undefined && value !== null && String(value) !== "") overrides[key] = value;
+    }
+
+    function putHtriUnitTarget(overrides, field, unit) {
+      if (!unit) return;
+      putOverride(overrides, `${field} Target Unit`, unit);
+      if (field === "Heat capacity") putOverride(overrides, "Heat Exchanged Unit", unit);
+      if (field === "Operating Pressure") putOverride(overrides, "Inlet Pressure Unit", unit);
+      if (field === "Pressure drop") putOverride(overrides, "Pressure Drop Unit", unit);
+      if (field === "Design / Test Pressure") putOverride(overrides, "Design/Test Pressure Unit", unit);
+    }
+
+    function putHtriTwoSideOverride(overrides, field, hot, cold, unit) {
+      if (field === "Media") {
+        putOverride(overrides, "Media Hot", hot);
+        putOverride(overrides, "Media Cold", cold);
+        return;
+      }
+      if (field === "Operating Pressure") {
+        putOverride(overrides, "Operating Pressure Hot", hot);
+        putOverride(overrides, "Operating Pressure Cold", cold);
+        putOverride(overrides, "Operating Pressure Unit", unit);
+        if (hot || cold) putOverride(overrides, "Inlet Pressure", [hot || "", "", cold || ""]);
+        putOverride(overrides, "Inlet Pressure Unit", unit);
+        return;
+      }
+      if (field === "Pressure drop") {
+        putOverride(overrides, "Pressure drop Hot", hot);
+        putOverride(overrides, "Pressure drop Cold", cold);
+        putOverride(overrides, "Pressure drop Unit", unit);
+        if (hot || cold) putOverride(overrides, "Pressure Drop", [hot || "", cold || ""]);
+        putOverride(overrides, "Pressure Drop Unit", unit);
+      }
+    }
+
+    function applyHtriGroupedTask(overrides, task) {
+      if (task.field === "Basic Info") {
+        HTRI_BASIC_FIELDS.forEach(field => putOverride(overrides, field, task[`htriBasic_${fieldKey(field)}`]));
+        return true;
+      }
+      if (task.field === "Material") {
+        putOverride(overrides, "Soldering Material", task.htriSolderingMaterial);
+        putOverride(overrides, "Gasket Material", task.htriGasketMaterial);
+        return true;
+      }
+      if (task.field === "Duty Values") {
+        putHtriTwoSideOverride(overrides, "Media", task.htriMediaHot, task.htriMediaCold, "");
+        putOverride(overrides, "Heat capacity", task.htriHeatCapacityValue);
+        putOverride(overrides, "Heat Exchanged", task.htriHeatCapacityValue);
+        putOverride(overrides, "Heat capacity Unit", task.htriHeatCapacityUnit);
+        putOverride(overrides, "Heat Exchanged Unit", task.htriHeatCapacityUnit);
+        putHtriTwoSideOverride(overrides, "Operating Pressure", task.htriOperatingPressureHot, task.htriOperatingPressureCold, task.htriOperatingPressureUnit);
+        putHtriTwoSideOverride(overrides, "Pressure drop", task.htriPressureDropHot, task.htriPressureDropCold, task.htriPressureDropUnit);
+        return true;
+      }
+      if (task.field === "Design Values") {
+        const designTemp = splitHtriPair(task.htriDesignTemperatureValue);
+        const designPressure = splitHtriPair(task.htriDesignPressureValue);
+        putOverride(overrides, "Design Temperature", task.htriDesignTemperatureValue);
+        putOverride(overrides, "Design/MDMT Temperature", designTemp);
+        putOverride(overrides, "Design Temperature Unit", task.htriDesignTemperatureUnit);
+        putOverride(overrides, "Design/MDMT Temperature Unit", task.htriDesignTemperatureUnit);
+        putOverride(overrides, "Design / Test Pressure", task.htriDesignPressureValue);
+        putOverride(overrides, "Design/Test Pressure", designPressure);
+        putOverride(overrides, "Design / Test Pressure Unit", task.htriDesignPressureUnit);
+        putOverride(overrides, "Design/Test Pressure Unit", task.htriDesignPressureUnit);
+        return true;
+      }
+      if (task.field === "Unit Conversion") {
+        putHtriUnitTarget(overrides, task.unitField, task.unitTarget);
+        return true;
+      }
+      return false;
+    }
+
     function htriOverridesFor(index) {
       const overrides = {};
       htriTasks.forEach(task => {
         if (!HTRI_EDIT_FIELDS.includes(task.field)) return;
         if (!task.targets || !task.targets.includes(index)) return;
+        if (applyHtriGroupedTask(overrides, task)) return;
         if (task.field === "Media") {
-          if (task.hot) overrides["Media Hot"] = task.hot;
-          if (task.cold) overrides["Media Cold"] = task.cold;
+          putHtriTwoSideOverride(overrides, "Media", task.hot, task.cold, "");
         } else if (task.mode === "convert" && task.unitTarget) {
-          overrides[`${task.field} Target Unit`] = task.unitTarget;
+          putHtriUnitTarget(overrides, task.field, task.unitTarget);
         } else if (["Operating Pressure", "Pressure drop"].includes(task.field)) {
-          if (task.hot) overrides[`${task.field} Hot`] = task.hot;
-          if (task.cold) overrides[`${task.field} Cold`] = task.cold;
-          if (task.unit) overrides[`${task.field} Unit`] = task.unit;
+          putHtriTwoSideOverride(overrides, task.field, task.hot, task.cold, task.unit);
         } else if (["Design Temperature", "Design / Test Pressure", "Heat capacity"].includes(task.field)) {
-          if (task.value) overrides[task.field] = task.value;
-          if (task.unit) overrides[`${task.field} Unit`] = task.unit;
+          putOverride(overrides, task.field, task.value);
+          putOverride(overrides, `${task.field} Unit`, task.unit);
+          if (task.field === "Heat capacity") {
+            putOverride(overrides, "Heat Exchanged", task.value);
+            putOverride(overrides, "Heat Exchanged Unit", task.unit);
+          }
+          if (task.field === "Design Temperature") {
+            putOverride(overrides, "Design/MDMT Temperature", splitHtriPair(task.value));
+            putOverride(overrides, "Design/MDMT Temperature Unit", task.unit);
+          }
+          if (task.field === "Design / Test Pressure") {
+            putOverride(overrides, "Design/Test Pressure", splitHtriPair(task.value));
+            putOverride(overrides, "Design/Test Pressure Unit", task.unit);
+          }
         } else if (task.field === "Gasket Material" && task.value) {
-          overrides["Gasket Material"] = task.value;
+          putOverride(overrides, "Gasket Material", task.value);
         } else if (task.value) {
-          overrides[task.field] = task.value;
+          putOverride(overrides, task.field, task.value);
         }
       });
       return overrides;
@@ -3497,7 +3683,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         ["Design/MDMT Temperature", summary["Design/MDMT Temperature Unit"], ...(summary["Design/MDMT Temperature"] || [])],
         ["", "", "", "", "", ""],
         ["Thermal", "Unit", "Value", "", "", ""],
-        ["Heat Exchanged", "kcal/hr", summary["Heat Exchanged"], "", "", ""],
+        ["Heat Exchanged", summary["Heat Exchanged Unit"] || "kcal/hr", summary["Heat Exchanged"], "", "", ""],
         ["LMTD", "deg C", summary["LMTD"], "", "", ""],
         ["Transfer Rate Clean", "W/m2-K", summary["Transfer Rate Clean"], "Service", summary["Transfer Rate Service"], ""],
         ["", "", "", "", "", ""],
@@ -3722,7 +3908,6 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     document.getElementById("htriApplyTaskBtn").addEventListener("click", applyHtriTaskFromForm);
     document.getElementById("htriEditTaskBtn").addEventListener("click", editHtriTask);
     document.getElementById("htriRemoveTaskBtn").addEventListener("click", removeHtriTask);
-    document.getElementById("htriPreviewBtn").addEventListener("click", renderHtriPreview);
     document.getElementById("htriDownloadDatasheetBtn").addEventListener("click", () => setHtriDownloadMode("datasheet"));
     document.getElementById("htriDownloadZipBtn").addEventListener("click", () => setHtriDownloadMode("zip"));
     document.getElementById("htriDownloadBtn").addEventListener("click", event => {
