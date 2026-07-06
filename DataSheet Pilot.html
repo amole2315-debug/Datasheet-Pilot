@@ -638,7 +638,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       ],
       "Product Properties": [
         "Density (Liquid)", "Specific heat capacity (Liquid)",
-        "Thermal conductivity (Liquid)", "Viscosity (Liquid)", "Latent heat"
+        "Thermal conductivity (Liquid)", "Viscosity (Liquid)", "Latent heat",
+        "Property Unit Group"
       ]
     };
 
@@ -1140,6 +1141,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if (field === "Plate material") {
         return selectRow("Material", "value", ["A240-304", "A240-316L", "Titanium", "C-276"]);
       }
+      if (field === "Property Unit Group") {
+        return selectRow("Unit family", "value", ["J", "kcal"]);
+      }
       return inputRow("Value", "value") + inputRow("Unit", "unit");
     }
 
@@ -1404,7 +1408,24 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           if (task.hot || task.cold) return this.setTwoSidedRow(doc, field, task.hot || "", task.cold || "", task.unit || "");
           return this.setSingleRow(doc, field, task.value || "", task.unit || "");
         }
+        if (field === "Property Unit Group") {
+          return this.convertPropertyUnitGroup(doc, task.value || "J");
+        }
         return false;
+      }
+
+      convertPropertyUnitGroup(doc, family) {
+        const wantsKcal = String(family || "").toLowerCase().includes("kcal");
+        const targets = [
+          ["Specific heat capacity (Liquid)", wantsKcal ? "kcal/(kg*K)" : "kJ/(kg*K)", false],
+          ["Thermal conductivity (Liquid)", wantsKcal ? "kcal/(m*h*K)" : "W/(m*K)", false],
+          ["Latent heat", wantsKcal ? "kcal/kg" : "kJ/kg", false]
+        ];
+        let changed = false;
+        for (const [label, unit, twoSided] of targets) {
+          if (this.convertRow(doc, label, { field: label, unitTarget: unit }, twoSided)) changed = true;
+        }
+        return changed;
       }
 
       rows(doc) {
