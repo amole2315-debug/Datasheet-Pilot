@@ -478,7 +478,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         <div class="toolbar">
           <label class="file-button">
             HTRI Files
-            <input id="htriUploadInput" type="file" accept=".xls,.xlsx" multiple>
+            <input id="htriUploadInput" type="file" accept=".xls,.xlsx,.xlsm" multiple>
           </label>
           <label class="file-button">
             BPHE Template
@@ -491,7 +491,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           <button id="htriSelectAllBtn">All</button>
           <button id="htriSelectNoneBtn">None</button>
           <button id="htriDeleteSelectedBtn">Delete</button>
-          <span id="htriStatus" class="status">Select HTRI .xls/.xlsx files and BPHE/GPHE .xlsm templates.</span>
+          <span id="htriStatus" class="status">Select HTRI .xls/.xlsx/.xlsm source files.</span>
         </div>
         <div class="table-wrap">
           <table>
@@ -2900,8 +2900,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     function handleDropFiles(fileList) {
       const dropped = [...fileList];
       const docs = dropped.filter(file => file.name.toLowerCase().endsWith(".docx") && !file.name.startsWith("~$"));
-      const templateFiles = dropped.filter(file => /\.(xlsm|xlsx)$/i.test(file.name) && /template|datasheet|gphe|bphe|mc/i.test(file.name));
-      const sheets = dropped.filter(file => /\.(xls|xlsx)$/i.test(file.name) && !templateFiles.includes(file));
+      const templateFiles = dropped.filter(file => /^(BPHE|GPHE)\.(xlsm|xlsx)$/i.test(file.name));
+      const sheets = dropped.filter(file => /\.(xls|xlsx|xlsm)$/i.test(file.name) && !templateFiles.includes(file));
       if (docs.length) loadFiles(docs);
       templateFiles.forEach(file => loadHtriTemplate(file, /GPHE/i.test(file.name) ? "GPHE" : "BPHE"));
       if (sheets.length) loadHtriFiles(sheets);
@@ -3187,9 +3187,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         alert("HTRI XLS reader is not loaded. Internet access may be required for the XLS parser library.");
         return;
       }
-      const expanded = [...fileList].filter(file => /\.(xls|xlsx)$/i.test(file.name));
+      const expanded = [...fileList].filter(file => /\.(xls|xlsx|xlsm)$/i.test(file.name));
       if (!expanded.length) {
-        alert("HTRI accepts .xls or .xlsx files only.");
+        alert("HTRI accepts .xls, .xlsx, or .xlsm source files only.");
         return;
       }
       htriStatus.textContent = "Reading " + expanded.length + " HTRI file(s)...";
@@ -3205,11 +3205,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           const workbook = XLSX.read(buffer.slice(0), { type: "array", cellDates: false, cellFormula: false });
           const model = htriModelFromWorkbook(file.name, workbook);
           const kind = htriKindFromWorkbook(file.name, workbook, model) || "GPHE";
-          const item = { file, buffer, name: file.name, workbook, selected: true, kind, form: file.name.toLowerCase().endsWith(".xls") ? "xls" : "xlsx", result: workbook.SheetNames.join(" | ") };
+          const ext = file.name.toLowerCase().endsWith(".xlsm") ? "xlsm" : file.name.toLowerCase().endsWith(".xls") ? "xls" : "xlsx";
+          const item = { file, buffer, name: file.name, workbook, selected: true, kind, form: ext, result: workbook.SheetNames.join(" | ") };
           htriFiles.push(item);
           added += 1;
         } catch (error) {
-          htriFiles.push({ file, name: file.name, workbook: null, selected: true, kind: "HTRI", form: file.name.toLowerCase().endsWith(".xls") ? "xls" : "xlsx", result: "read error: " + (error.message || error) });
+          const ext = file.name.toLowerCase().endsWith(".xlsm") ? "xlsm" : file.name.toLowerCase().endsWith(".xls") ? "xls" : "xlsx";
+          htriFiles.push({ file, name: file.name, workbook: null, selected: true, kind: "GPHE", form: ext, result: "read error: " + (error.message || error) });
           added += 1;
         }
       }
