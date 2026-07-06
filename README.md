@@ -1,51 +1,26 @@
-# Datasheet Correction
+# DataSheet Pilot
 
-Word 데이터시트(`.docx`)를 폴더 단위로 읽고, 항목을 선택해서 일괄 수정하는 프로그램입니다.
+MPX2 Word datasheet와 HTRI Excel datasheet를 브라우저에서 일괄 수정하는 도구입니다.
 
 ## 실행
 
-개발 환경:
-
 ```bat
-conda activate MPX2
-python datasheet_correction_app.py
+Run DataSheet Pilot.bat
 ```
 
-EXE 빌드:
+브라우저가 열리면 MPX2 또는 HTRI 탭을 선택해서 파일을 업로드하고 task를 적용한 뒤 다운로드합니다.
 
-```bat
-build_exe.bat
-```
+## 파일 구성
 
-빌드 결과:
+- `DataSheet Pilot.html`: 화면과 MPX2 처리 로직
+- `pilot_server.js`: 로컬 서버와 HTRI Excel 변환 로직
+- `Run DataSheet Pilot.bat`: 실행 파일
+- `templates/BPHE.xlsm`: HTRI BPHE 출력 템플릿
+- `templates/GPHE.xlsm`: HTRI GPHE 출력 템플릿
 
-```text
-dist\DatasheetCorrection.exe
-```
+## 필요 프로그램
 
-## 현재 지원 구조
+- Node.js
+- Microsoft Excel
 
-- 폴더 안의 `.docx` Word 파일
-- 하위 폴더까지 `.docx` 검색
-- 파일명 기준 `GPHE / BPHE`, `simple / standard / internal` 표시
-- Word 표의 항목 라벨 기준 수정
-- 미리보기 후 `output` 폴더에 `_corrected.docx` 저장
-
-## 현재 지원 항목
-
-- Basic: Customer, Project Name, Contact, Service, Item No., Datasheet No., Date, Designed by
-- Duty Requirements: Media, Heat capacity, Temperature inlet/outlet, Mass flow rate, Volume flowrate, Operating Pressure, Pressure drop
-- Unit Data: Design Temperature, Design/Test Pressure, Connection Type, O.H.T.C, Heat transfer area, Number of plates, Surface margin
-- Product Properties: Density, Specific heat capacity, Thermal conductivity, Viscosity, Latent heat
-
-## 단위 변환
-
-- kcal/h -> kW
-- kcal/(m²·h·K) -> W/(m²·K)
-- kcal/(m·h·K) -> W/(m·K)
-- kcal/(kg·K) -> kJ/(kg·K)
-- kcal/kg -> kJ/kg
-- bar_G -> bar_A / kPaG / kPaA
-- kPa -> bar / bar_G
-
-원본 파일은 직접 수정하지 않고, 결과는 `output` 폴더에 저장합니다.
+HTRI 변환은 Excel COM을 사용하므로 Windows에서 Excel이 설치되어 있어야 합니다.
