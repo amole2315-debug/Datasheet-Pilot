@@ -964,6 +964,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }
 
     function autoConnectionMaterial(type, standard, baseMaterial, component, explicitValue) {
+      if (!connectionMaterialVisible(type, component)) return "-";
       const manual = String(explicitValue || "Auto");
       if (manual && manual !== "Auto") return manual;
       const lined = ["MetalLined", "LapJoint"].includes(type);
@@ -981,6 +982,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         return "-";
       }
       return "-";
+    }
+
+    function connectionMaterialVisible(type, component) {
+      const name = String(type || "UnLined");
+      if (name === "UnLined") return false;
+      if (["SORF", "SOFF", "WNRF"].includes(name)) return component === "flange";
+      return ["flange", "nozzle", "lining"].includes(component);
     }
 
     function availableUnitTargetsForField(field) {
@@ -1252,9 +1260,17 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         ${selectRow(`${labelPrefix}Rating`, `${keyPrefix}Rating`, connectionRatingOptions(standard))}
         ${selectRow(`${labelPrefix}Size`, `${keyPrefix}Size`, connectionSizeOptions(standard), connectionSizePart("50A", standard))}
         ${selectRow(`${labelPrefix}Type`, `${keyPrefix}ConnectionType`, CONNECTION_TYPES)}
-        ${selectRow(`${labelPrefix}Flange Material`, `${keyPrefix}FlangeMaterial`, CONNECTION_FLANGE_MATERIALS)}
-        ${selectRow(`${labelPrefix}Nozzle Material`, `${keyPrefix}NozzleMaterial`, CONNECTION_NOZZLE_MATERIALS)}
-        ${selectRow(`${labelPrefix}Lining Material`, `${keyPrefix}LiningMaterial`, CONNECTION_LINING_MATERIALS)}
+        ${connectionMaterialRow(labelPrefix, keyPrefix, "flange", "Flange Material", CONNECTION_FLANGE_MATERIALS)}
+        ${connectionMaterialRow(labelPrefix, keyPrefix, "nozzle", "Nozzle Material", CONNECTION_NOZZLE_MATERIALS)}
+        ${connectionMaterialRow(labelPrefix, keyPrefix, "lining", "Lining Material", CONNECTION_LINING_MATERIALS)}
+      `;
+    }
+
+    function connectionMaterialRow(labelPrefix, keyPrefix, material, label, values) {
+      return `
+        <div data-connection-material-row data-connection-prefix="${escapeHtml(keyPrefix)}" data-connection-material="${escapeHtml(material)}">
+          ${selectRow(`${labelPrefix}${label}`, `${keyPrefix}${label.replace(/\s+/g, "")}`, values)}
+        </div>
       `;
     }
 
@@ -1349,6 +1365,14 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           pane.classList.toggle("active", pane.dataset.connectionPane === target);
         });
       };
+      const refreshMaterialRows = () => {
+        dynamicForm.querySelectorAll("[data-connection-material-row]").forEach(row => {
+          const prefix = row.dataset.connectionPrefix;
+          const material = row.dataset.connectionMaterial;
+          const typeSelect = dynamicForm.querySelector(`[data-key='${prefix}ConnectionType']`);
+          row.style.display = connectionMaterialVisible(typeSelect ? typeSelect.value : "UnLined", material) ? "" : "none";
+        });
+      };
       const refresh = () => {
         const standard = standardSelect ? standardSelect.value : "KS";
         dynamicForm.querySelectorAll("[data-key$='Rating']").forEach(select => {
@@ -1363,12 +1387,16 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         });
         if (scope === "Hot / Cold") activateConnectionPane("hotCold", "hot");
         if (scope === "Individual") activateConnectionPane("individual", "hotIn");
+        refreshMaterialRows();
       };
       dynamicForm.querySelectorAll("[data-connection-target]").forEach(button => {
         button.addEventListener("click", () => {
           const group = button.closest("[data-connection-group]").dataset.connectionGroup;
           activateConnectionPane(group, button.dataset.connectionTarget);
         });
+      });
+      dynamicForm.querySelectorAll("[data-key$='ConnectionType']").forEach(select => {
+        select.addEventListener("change", refreshMaterialRows);
       });
       if (standardSelect) standardSelect.addEventListener("change", refresh);
       if (scopeSelect) scopeSelect.addEventListener("change", refresh);
