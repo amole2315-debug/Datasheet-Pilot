@@ -1616,17 +1616,34 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return `
         <div class="kind-summary">Selected: ${escapeHtml(productScopeSummary())}</div>
         ${scopeControl}
-        <div data-product-section="common">
+        <div data-product-section="GPHE">
           ${selectRow("Plate material", "connectionPlateMaterial", CONNECTION_BASE_MATERIALS, "316L")}
           ${selectRow("Plate thickness", "plateThickness", CONNECTION_PLATE_THICKNESSES, "0.6t")}
         </div>
         <div data-product-section="BPHE">
           ${selectRow("Soldering Material", "solderingMaterial", ["", "SUS", "Copper"])}
           ${selectRow("BPHE Model", "bpheConnectionModel", bpheConnectionModels, bpheConnectionModel)}
-          ${selectRow("Hot In Connection", "bpheHotInConnection", bpheConnectionValues)}
-          ${selectRow("Hot Out Connection", "bpheHotOutConnection", bpheConnectionValues)}
-          ${selectRow("Cold In Connection", "bpheColdInConnection", bpheConnectionValues)}
-          ${selectRow("Cold Out Connection", "bpheColdOutConnection", bpheConnectionValues)}
+          ${selectRow("Apply range", "bpheConnectionScope", ["All same", "Hot / Cold", "Individual"])}
+          <div data-bphe-connection-scope="All same">
+            ${selectRow("Connection", "bpheAllConnection", bpheConnectionValues)}
+          </div>
+          <div data-bphe-connection-scope="Hot / Cold" style="display:none">
+            ${connectionScopeButtons("bpheHotCold", [{ key: "hot", label: "Hot" }, { key: "cold", label: "Cold" }])}
+            ${connectionPane("bpheHotCold", "hot", selectRow("Hot Connection", "bpheHotConnection", bpheConnectionValues), true)}
+            ${connectionPane("bpheHotCold", "cold", selectRow("Cold Connection", "bpheColdConnection", bpheConnectionValues))}
+          </div>
+          <div data-bphe-connection-scope="Individual" style="display:none">
+            ${connectionScopeButtons("bpheIndividual", [
+              { key: "hotIn", label: "Hot In" },
+              { key: "hotOut", label: "Hot Out" },
+              { key: "coldIn", label: "Cold In" },
+              { key: "coldOut", label: "Cold Out" }
+            ])}
+            ${connectionPane("bpheIndividual", "hotIn", selectRow("Hot In Connection", "bpheHotInConnection", bpheConnectionValues), true)}
+            ${connectionPane("bpheIndividual", "hotOut", selectRow("Hot Out Connection", "bpheHotOutConnection", bpheConnectionValues))}
+            ${connectionPane("bpheIndividual", "coldIn", selectRow("Cold In Connection", "bpheColdInConnection", bpheConnectionValues))}
+            ${connectionPane("bpheIndividual", "coldOut", selectRow("Cold Out Connection", "bpheColdOutConnection", bpheConnectionValues))}
+          </div>
         </div>
         <div data-product-section="GPHE">
         ${selectRow("Standard", "standard", CONNECTION_STANDARDS, standard)}
@@ -1696,6 +1713,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     function setupConnectionForm(container = dynamicForm) {
       const standardSelect = container.querySelector("[data-key='standard']");
       const scopeSelect = container.querySelector("[data-key='connectionScope']");
+      const bpheScopeSelect = container.querySelector("[data-key='bpheConnectionScope']");
       const productSelect = container.querySelector("[data-key='productScope']");
       const mpxBpheModelSelect = container.querySelector("[data-key='bpheConnectionModel']");
       const bpheModelSelect = container.querySelector("[data-key='htriBpheConnectionModel']");
@@ -1757,6 +1775,12 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         });
         if (scope === "Hot / Cold") activateConnectionPane("hotCold", "hot");
         if (scope === "Individual") activateConnectionPane("individual", "hotIn");
+        const bpheScope = bpheScopeSelect ? bpheScopeSelect.value : "All same";
+        container.querySelectorAll("[data-bphe-connection-scope]").forEach(section => {
+          section.style.display = section.dataset.bpheConnectionScope === bpheScope ? "" : "none";
+        });
+        if (bpheScope === "Hot / Cold") activateConnectionPane("bpheHotCold", "hot");
+        if (bpheScope === "Individual") activateConnectionPane("bpheIndividual", "hotIn");
         refreshMaterialRows();
       };
       container.querySelectorAll("[data-connection-target]").forEach(button => {
@@ -1770,6 +1794,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       });
       if (standardSelect) standardSelect.addEventListener("change", refresh);
       if (scopeSelect) scopeSelect.addEventListener("change", refresh);
+      if (bpheScopeSelect) bpheScopeSelect.addEventListener("change", refresh);
       if (productSelect) productSelect.addEventListener("change", refresh);
       if (mpxBpheModelSelect) mpxBpheModelSelect.addEventListener("change", refresh);
       if (bpheModelSelect) bpheModelSelect.addEventListener("change", refresh);
@@ -1929,10 +1954,14 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if (isConnectionField(task.field)) {
         const standard = dynamicForm.querySelector("[data-key='standard']");
         const scope = dynamicForm.querySelector("[data-key='connectionScope']");
+        const bpheScope = dynamicForm.querySelector("[data-key='bpheConnectionScope']");
+        const bpheModel = dynamicForm.querySelector("[data-key='bpheConnectionModel']");
         const productScope = dynamicForm.querySelector("[data-key='productScope']");
         if (productScope && task.productScope) productScope.value = task.productScope;
+        if (bpheModel) bpheModel.dispatchEvent(new Event("change"));
         if (standard) standard.dispatchEvent(new Event("change"));
         if (scope) scope.dispatchEvent(new Event("change"));
+        if (bpheScope) bpheScope.dispatchEvent(new Event("change"));
         if (productScope) productScope.dispatchEvent(new Event("change"));
       }
       if (task.field === "Unit Conversion") {
@@ -1971,7 +2000,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if (task.field === "Unit Conversion") return `${task.unitField || "Unit"} -> ${task.unitTarget || ""}${scope}`;
       if (task.field === "Property Unit Group") return `${task.field}: ${task.value || "J"}${scope}`;
       if (isConnectionField(task.field)) {
-        const detail = [task.productScope, task.standard, task.connectionScope, task.connectionPlateMaterial].filter(Boolean).join(" | ");
+        const detail = task.productScope === "BPHE"
+          ? [task.productScope, task.bpheConnectionScope, task.bpheConnectionModel].filter(Boolean).join(" | ")
+          : [task.productScope, task.standard, task.connectionScope, task.connectionPlateMaterial].filter(Boolean).join(" | ");
         return `${task.field}${detail ? `: ${detail}` : ""}${scope}`;
       }
       const parts = [task.field];
@@ -2196,18 +2227,24 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         const plateWithThickness = [plateMaterial, task.plateThickness || ""].filter(Boolean).join(" ");
         const frameMaterial = frameMaterialForStandard(task.frameMaterial || "C.S", standard);
         let changed = false;
-        if (this.setMaterialValue(doc, "Plate material", plateWithThickness)) changed = true;
         if (productScope === "BPHE") {
           if (task.solderingMaterial && this.isBpheItem()) {
             const modelPrefix = solderingModelPrefix(task.solderingMaterial);
             if (this.setMaterialValue(doc, "Soldering Material", task.solderingMaterial)) changed = true;
             if (modelPrefix && this.replaceBpModelPrefix(doc, modelPrefix)) changed = true;
           }
-          const hotConnection = this.bpheConnectionPair(task.bpheHotInConnection, task.bpheHotOutConnection);
-          const coldConnection = this.bpheConnectionPair(task.bpheColdInConnection, task.bpheColdOutConnection);
+          const hotConnection = this.bpheConnectionPair(
+            this.bpheConnectionScopedValue(task, "hotIn"),
+            this.bpheConnectionScopedValue(task, "hotOut")
+          );
+          const coldConnection = this.bpheConnectionPair(
+            this.bpheConnectionScopedValue(task, "coldIn"),
+            this.bpheConnectionScopedValue(task, "coldOut")
+          );
           if ((hotConnection || coldConnection) && this.setConnectionSummaryRow(doc, hotConnection, coldConnection)) changed = true;
           return changed;
         }
+        if (this.setMaterialValue(doc, "Plate material", plateWithThickness)) changed = true;
         const positions = [
           task.hotInPosition || "F2",
           task.hotOutPosition || "F3",
@@ -2251,6 +2288,18 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         const first = inlet || outlet || "";
         const second = outlet || inlet || "";
         return first && second ? `${first} / ${second}` : first || second;
+      }
+
+      bpheConnectionScopedValue(task, column) {
+        const scope = task.bpheConnectionScope || "All same";
+        if (scope === "Individual") {
+          const key = `bphe${column.charAt(0).toUpperCase()}${column.slice(1)}Connection`;
+          return task[key] || "";
+        }
+        if (scope === "Hot / Cold") {
+          return column.startsWith("hot") ? (task.bpheHotConnection || "") : (task.bpheColdConnection || "");
+        }
+        return task.bpheAllConnection || "";
       }
 
       connectionScopedValue(task, name, column, fallback) {
