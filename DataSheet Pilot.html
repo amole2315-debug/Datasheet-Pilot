@@ -1041,11 +1041,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       const lining = String(liningMaterial || "").trim();
       const hasLining = lining && lining !== "-";
       if (type === "MetalLined") {
-        const suffix = [hasLining ? lining : "", studType ? "Stud Type" : ""].filter(Boolean).join(", ");
-        return suffix ? `MetalLined(${suffix})` : "MetalLined";
+        const withLining = hasLining ? `MetalLined With ${lining}` : "MetalLined";
+        return studType ? `${withLining} (Stud Type)` : withLining;
       }
       if (["RubberLined", "LapJoint"].includes(type) && hasLining) {
-        return `${type}(${lining})`;
+        return `${type} With ${lining}`;
       }
       return type;
     }
