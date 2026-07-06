@@ -1376,12 +1376,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
     function dutyRowHtml(field) {
       const key = fieldKey(field);
-      const unitOptions = field === "Media" ? [""] : ["", ...unitTargetsForConversionField(field)];
+      const hasUnit = !["Media", "Temperature inlet", "Temperature outlet"].includes(field);
+      const unitOptions = hasUnit ? ["", ...unitTargetsForConversionField(field)] : [""];
       return `
         <div class="duty-label">${escapeHtml(field)}</div>
         <div class="duty-cell"><textarea data-key="duty_${key}_hot"></textarea></div>
         <div class="duty-cell"><textarea data-key="duty_${key}_cold"></textarea></div>
-        <div class="duty-cell">${field === "Media" ? "" : `<select data-key="duty_${key}_unit">${unitOptions.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("")}</select>`}</div>
+        <div class="duty-cell">${hasUnit ? `<select data-key="duty_${key}_unit">${unitOptions.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("")}</select>` : ""}</div>
       `;
     }
 
@@ -1930,7 +1931,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           const key = fieldKey(field);
           const hot = task[`duty_${key}_hot`] || "";
           const cold = task[`duty_${key}_cold`] || "";
-          const unit = field === "Media" ? "" : task[`duty_${key}_unit`] || "";
+          const unit = ["Media", "Temperature inlet", "Temperature outlet"].includes(field) ? "" : task[`duty_${key}_unit`] || "";
           if ((hot || cold || unit) && this.setTwoSidedRow(doc, field, hot, cold, unit)) changed = true;
         }
         return changed;
