@@ -786,7 +786,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     const CONNECTION_POSITIONS = ["F1", "F2", "F3", "F4", "L1", "L2", "L3", "L4"];
     const CONNECTION_A_SIZES = ["25A", "32A", "40A", "50A", "65A", "80A", "100A", "125A", "150A", "200A", "250A", "300A"];
     const CONNECTION_INCH_SIZES = ["1\"", "1-1/4\"", "1-1/2\"", "2\"", "2-1/2\"", "3\"", "4\"", "5\"", "6\"", "8\"", "10\"", "12\""];
-    const CONNECTION_TYPES = ["UnLined", "MetalLined", "Stud Type", "RubberLined", "SORF", "SOFF", "WNRF", "LapJoint"];
+    const CONNECTION_TYPES = ["UnLined", "MetalLined", "RubberLined", "SORF", "SOFF", "WNRF", "LapJoint"];
     const CONNECTION_BASE_MATERIALS = ["304", "316L", "316", "Titanium", "C-276"];
     const CONNECTION_FLANGE_MATERIALS = ["Auto", "-", "C.S.", "STS 304", "STS 316L", "STS 316", "A182 F304", "A182 F316L", "A182 F316"];
     const CONNECTION_NOZZLE_MATERIALS = ["Auto", "-", "SPPS38", "STS 304", "STS 316L", "STS 316", "A312 TP304", "A312 TP316L", "A312 TP316", "Titanium"];
@@ -1015,9 +1015,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if (!connectionMaterialVisible(type, component)) return "-";
       const manual = String(explicitValue || "Auto");
       if (manual && manual !== "Auto") return manual;
-      const lined = ["MetalLined", "Stud Type", "LapJoint"].includes(type);
+      const lined = ["MetalLined", "LapJoint"].includes(type);
       if (component === "flange") {
-        if (["SORF", "SOFF", "WNRF", "LapJoint", "MetalLined", "Stud Type", "RubberLined"].includes(type)) return "C.S.";
+        if (["SORF", "SOFF", "WNRF", "LapJoint", "MetalLined", "RubberLined"].includes(type)) return "C.S.";
         return "-";
       }
       if (component === "nozzle") {
@@ -1328,9 +1328,22 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         ${selectRow(`${labelPrefix}Rating`, `${keyPrefix}Rating`, connectionRatingOptions(standard))}
         ${selectRow(`${labelPrefix}Size`, `${keyPrefix}Size`, connectionSizeOptions(standard), connectionSizePart("50A", standard))}
         ${selectRow(`${labelPrefix}Type`, `${keyPrefix}ConnectionType`, CONNECTION_TYPES)}
+        ${connectionStudRow(labelPrefix, keyPrefix)}
         ${connectionMaterialRow(labelPrefix, keyPrefix, "flange", "Flange Material", CONNECTION_FLANGE_MATERIALS)}
         ${connectionMaterialRow(labelPrefix, keyPrefix, "nozzle", "Nozzle Material", CONNECTION_NOZZLE_MATERIALS)}
         ${connectionMaterialRow(labelPrefix, keyPrefix, "lining", "Lining Material", CONNECTION_LINING_MATERIALS)}
+      `;
+    }
+
+    function connectionStudRow(labelPrefix, keyPrefix) {
+      return `
+        <div class="field-row" data-connection-stud-row data-connection-prefix="${escapeHtml(keyPrefix)}">
+          <label>${escapeHtml(labelPrefix)}Stud Type</label>
+          <div class="check-row">
+            <input type="checkbox" data-key="${escapeHtml(keyPrefix)}StudType">
+            <span>Use Stud Type</span>
+          </div>
+        </div>
       `;
     }
 
@@ -1510,6 +1523,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           }
           row.style.display = connectionMaterialVisible(type, material) ? "" : "none";
         });
+        dynamicForm.querySelectorAll("[data-connection-stud-row]").forEach(row => {
+          const prefix = row.dataset.connectionPrefix;
+          const typeSelect = dynamicForm.querySelector(`[data-key='${prefix}ConnectionType']`);
+          row.style.display = (typeSelect && typeSelect.value === "MetalLined") ? "" : "none";
+        });
       };
       const refresh = () => {
         const productScope = productSelect ? productSelect.value : "GPHE";
@@ -1611,6 +1629,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           task.mode = input.value === "Convert unit" ? "convert" : "set";
         } else if (key === "unitTarget") {
           task.unitTarget = input.value;
+        } else if (input.type === "checkbox") {
+          task[key] = input.checked;
         } else {
           task[key] = input.value;
         }
@@ -1688,6 +1708,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         } else if (key === "unitTarget") {
           ensureOption(input, task.unitTarget || "");
           input.value = task.unitTarget || "";
+        } else if (input.type === "checkbox") {
+          input.checked = Boolean(task[key]);
         } else if (Object.prototype.hasOwnProperty.call(task, key)) {
           input.value = task[key] || "";
         }
@@ -1975,9 +1997,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         const columns = ["hotIn", "hotOut", "coldIn", "coldOut"];
         const valuesFor = (name, fallback) => columns.map(column => this.connectionScopedValue(task, name, column, fallback));
         const types = valuesFor("ConnectionType", "UnLined");
+        const studFlags = valuesFor("StudType", false);
+        const displayTypes = types.map((type, index) => type === "MetalLined" && studFlags[index] ? "MetalLined (Stud Type)" : type);
         const ratings = valuesFor("Rating", connectionRatingOptions(standard)[0]).map(value => connectionRatingLabel(standard, value));
         const sizes = valuesFor("Size", connectionSizeOptions(standard)[Math.min(3, connectionSizeOptions(standard).length - 1)]).map(value => connectionSizeForStandard(value, standard));
-        const connectionTexts = columns.map((column, index) => `${ratings[index]} ${sizes[index]} ${types[index]}`.replace(/\s+/g, " ").trim());
+        const connectionTexts = columns.map((column, index) => `${ratings[index]} ${sizes[index]} ${displayTypes[index]}`.replace(/\s+/g, " ").trim());
         const hotConnection = this.connectionSideSummary(connectionTexts[0], connectionTexts[1]);
         const coldConnection = this.connectionSideSummary(connectionTexts[2], connectionTexts[3]);
         const materialValues = component => columns.map((column, index) => {
@@ -1988,7 +2012,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         if (this.setConnectionRow(doc, "Position", positions)) changed = true;
         if (this.setConnectionRow(doc, "Rating", ratings)) changed = true;
         if (this.setConnectionRow(doc, "Size", sizes)) changed = true;
-        if (this.setConnectionRow(doc, "Type", types)) changed = true;
+        if (this.setConnectionRow(doc, "Type", displayTypes)) changed = true;
         if (this.setConnectionRow(doc, "Flange Material", materialValues("Flange"))) changed = true;
         if (this.setConnectionRow(doc, "Nozzle Material", materialValues("Nozzle"))) changed = true;
         if (this.setConnectionRow(doc, "Lining Material", materialValues("Lining"))) changed = true;
