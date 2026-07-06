@@ -1074,6 +1074,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return value;
     }
 
+    function defaultFrameMaterialForStandard(standard) {
+      return connectionFamily(standard) === "ASME" ? "SA-516 Gr.70" : "SS275";
+    }
+
     function autoConnectionMaterial(type, standard, baseMaterial, component, explicitValue) {
       if (!connectionMaterialVisible(type, component)) return "-";
       const manual = String(explicitValue || "Auto");
@@ -1673,6 +1677,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         container.querySelectorAll("[data-key$='Size']").forEach(select => {
           updateSelectOptions(select, connectionSizeOptions(standard), connectionSizePart(select.value || "50A", standard));
         });
+        const htriFrameSelect = container.querySelector("[data-key='htriFrameMaterial']");
+        if (htriFrameSelect) htriFrameSelect.value = defaultFrameMaterialForStandard(standard);
         const scope = scopeSelect ? scopeSelect.value : "All same";
         container.querySelectorAll("[data-connection-scope]").forEach(section => {
           section.style.display = section.dataset.connectionScope === scope ? "" : "none";
@@ -3197,7 +3203,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         try {
           const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: false, cellFormula: false });
           const model = htriModelFromWorkbook(file.name, workbook);
-          const kind = htriKindFromWorkbook(file.name, workbook, model) || "HTRI";
+          const kind = htriKindFromWorkbook(file.name, workbook, model) || "GPHE";
           const item = { file, name: file.name, workbook, selected: true, kind, form: file.name.toLowerCase().endsWith(".xls") ? "xls" : "xlsx", result: workbook.SheetNames.join(" | ") };
           htriFiles.push(item);
           added += 1;
@@ -3276,7 +3282,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }
 
     function htriMaterialFormHtml() {
-      const kinds = selectedKinds(htriFiles);
+      const kindSet = selectedKinds(htriFiles);
+      const kinds = ["GPHE", "BPHE"].filter(kind => kindSet.has(kind));
       const scopeOptions = kinds.length ? kinds : ["GPHE"];
       const scope = scopeOptions[0] || "GPHE";
       const scopeControl = scopeOptions.length > 1
@@ -3298,7 +3305,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         </div>
         <div data-product-section="GPHE">
           ${selectRow("Connection material", "htriConnectionMaterial", CONNECTION_BASE_MATERIALS, "316L")}
-          ${selectRow("Frame material", "htriFrameMaterial", ["C.S", "SS275", "SA-516 Gr.70"], "C.S")}
+          ${selectRow("Frame material", "htriFrameMaterial", ["SS275", "SA-516 Gr.70"], "SS275")}
           ${selectRow("Standard", "standard", CONNECTION_STANDARDS, standard)}
           ${selectRow("Apply range", "connectionScope", ["All same", "Hot / Cold", "Individual"])}
           <div data-connection-scope="All same">
@@ -3533,6 +3540,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return name ? workbook.Sheets[name] : null;
     }
 
+    function htriCellText(sheet, address) {
+      const cell = sheet && sheet[address];
+      return cell ? String(cell.w || cell.v || "").trim() : "";
+    }
+
     function htriRows(sheet) {
       return sheet ? XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" }) : [];
     }
@@ -3553,7 +3565,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }
 
     function htriModelFromWorkbook(name, workbook) {
-      return modelFromText((name || "") + " " + htriWorkbookText(workbook));
+      const finalSheet = htriSheet(workbook, /Final\s*Results/i);
+      return modelFromText(htriCellText(finalSheet, "Y11")) || modelFromText((name || "") + " " + htriWorkbookText(workbook));
     }
 
     function htriKindFromWorkbook(name, workbook, model = "") {
@@ -3668,7 +3681,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           const baseMaterial = task.htriConnectionMaterial || "316L";
           const connection = connectionTaskDetails(task);
           putOverride(overrides, "Plate Material", plateMaterialForStandard(baseMaterial, standard));
-          putOverride(overrides, "Frame Material", frameMaterialForStandard(task.htriFrameMaterial || "C.S", standard));
+          putOverride(overrides, "Frame Material", task.htriFrameMaterial || defaultFrameMaterialForStandard(standard));
           putOverride(overrides, "Connection Hot", connection.hotConnection);
           putOverride(overrides, "Connection Cold", connection.coldConnection);
           putOverride(overrides, "Inlet Connection", [connection.hotConnection]);
@@ -3755,7 +3768,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       const fin = htriRows(htriSheet(wb, /final\s*results/i));
       const base = item.name.replace(/\.[^.]+$/i, "");
       const model = htriModelFromWorkbook(item.name, wb) || modelFromText(base);
-      const kind = htriKindFromWorkbook(item.name, wb, model) || item.kind || "";
+      const kind = htriKindFromWorkbook(item.name, wb, model) || item.kind || "GPHE";
       const filePlates = htriFirstNumberFromName(base);
       const totalPlates = htriNamedValue(api, "Total No. Plates") || filePlates;
       const fluid = htriRowValues(api, "Fluid Name").values;

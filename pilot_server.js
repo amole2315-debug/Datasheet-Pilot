@@ -37,7 +37,7 @@ function writeHtriExcelCopyScript(tempRoot) {
   script = patchScript(
     script,
     /\$model = First-NonBlank @\(\(Model-FromName \$base\), \(T \$api 'L10'\), \(T \$fin 'L11'\)\)/,
-    "$model = First-NonBlank @((Model-FromName $base), (Model-FromName (T $api 'L10')), (Model-FromName (T $fin 'L11')), (Model-FromName (T $api 'D6')), (Model-FromName (T $api 'M9')))",
+    "$model = First-NonBlank @((Model-FromName (T $fin 'Y11')), (Model-FromName $base), (Model-FromName (T $api 'L10')), (Model-FromName (T $fin 'L11')), (Model-FromName (T $api 'D6')), (Model-FromName (T $api 'M9')))",
     'model extraction'
   );
   script = patchScript(
