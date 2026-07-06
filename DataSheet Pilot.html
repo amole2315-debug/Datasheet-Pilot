@@ -1033,6 +1033,19 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return "-";
     }
 
+    function connectionDisplayType(type, liningMaterial, studType) {
+      const lining = String(liningMaterial || "").trim();
+      const hasLining = lining && lining !== "-";
+      if (type === "MetalLined") {
+        const suffix = [hasLining ? lining : "", studType ? "Stud Type" : ""].filter(Boolean).join(", ");
+        return suffix ? `MetalLined(${suffix})` : "MetalLined";
+      }
+      if (["RubberLined", "LapJoint"].includes(type) && hasLining) {
+        return `${type}(${lining})`;
+      }
+      return type;
+    }
+
     function connectionMaterialVisible(type, component) {
       const name = String(type || "UnLined");
       if (name === "UnLined") return false;
@@ -2003,16 +2016,17 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         const valuesFor = (name, fallback) => columns.map(column => this.connectionScopedValue(task, name, column, fallback));
         const types = valuesFor("ConnectionType", "UnLined");
         const studFlags = valuesFor("StudType", false);
-        const displayTypes = types.map((type, index) => type === "MetalLined" && studFlags[index] ? "MetalLined (Stud Type)" : type);
         const ratings = valuesFor("Rating", connectionRatingOptions(standard)[0]).map(value => connectionRatingLabel(standard, value));
         const sizes = valuesFor("Size", connectionSizeOptions(standard)[Math.min(3, connectionSizeOptions(standard).length - 1)]).map(value => connectionSizeForStandard(value, standard));
-        const connectionTexts = columns.map((column, index) => `${ratings[index]} ${sizes[index]} ${displayTypes[index]}`.replace(/\s+/g, " ").trim());
-        const hotConnection = this.connectionSideSummary(connectionTexts[0], connectionTexts[1]);
-        const coldConnection = this.connectionSideSummary(connectionTexts[2], connectionTexts[3]);
         const materialValues = component => columns.map((column, index) => {
           const explicit = this.connectionScopedValue(task, `${component}Material`, column, "Auto");
           return autoConnectionMaterial(types[index], standard, baseMaterial, component.toLowerCase(), explicit);
         });
+        const liningValues = materialValues("Lining");
+        const displayTypes = types.map((type, index) => connectionDisplayType(type, liningValues[index], studFlags[index]));
+        const connectionTexts = columns.map((column, index) => `${ratings[index]} ${sizes[index]} ${displayTypes[index]}`.replace(/\s+/g, " ").trim());
+        const hotConnection = this.connectionSideSummary(connectionTexts[0], connectionTexts[1]);
+        const coldConnection = this.connectionSideSummary(connectionTexts[2], connectionTexts[3]);
         if (this.setConnectionSummaryRow(doc, hotConnection, coldConnection)) changed = true;
         if (this.setConnectionRow(doc, "Position", positions)) changed = true;
         if (this.setConnectionRow(doc, "Rating", ratings)) changed = true;
@@ -2020,7 +2034,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         if (this.setConnectionRow(doc, "Type", displayTypes)) changed = true;
         if (this.setConnectionRow(doc, "Flange Material", materialValues("Flange"))) changed = true;
         if (this.setConnectionRow(doc, "Nozzle Material", materialValues("Nozzle"))) changed = true;
-        if (this.setConnectionRow(doc, "Lining Material", materialValues("Lining"))) changed = true;
+        if (this.setConnectionRow(doc, "Lining Material", liningValues)) changed = true;
         if (task.gasketMaterial && this.setLabelNextAny(doc, "Gasket Material", task.gasketMaterial)) changed = true;
         if (this.setLabelNextAny(doc, "Frame material", frameMaterial)) changed = true;
         if (this.updateFrameTypeMaterial(doc, frameMaterial)) changed = true;
