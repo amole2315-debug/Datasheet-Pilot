@@ -1783,9 +1783,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       const value = String(model || "").toUpperCase();
       if (BPHE_MODELS.includes(value)) return "BPHE";
       if (GPHE_MODELS.includes(value)) return "GPHE";
-      if (/^MS(10|20|30|60|70|80)$/.test(value)) return "BPHE";
-      if (/^MC(10|20|30|60|70|80)$/.test(value)) return "BPHE";
-      if (/^MA(40|60)$/.test(value)) return "BPHE";
+      if (/^(MC|MS|MA)\d+[A-Z]*$/.test(value)) return "BPHE";
       return "";
     }
 
