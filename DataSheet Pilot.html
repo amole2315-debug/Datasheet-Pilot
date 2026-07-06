@@ -1135,7 +1135,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         return selectRow("Material", "value", ["SUS", "Copper"]);
       }
       if (field === "Gasket Material") {
-        return selectRow("Material", "value", ["NBR", "EPDM", "Viton-G"]);
+        return selectRow("Material", "value", ["NBR", "EPDM", "Viton", "Viton-G"]);
       }
       if (field === "Plate material") {
         return selectRow("Material", "value", ["A240-304", "A240-316L", "Titanium", "C-276"]);
@@ -2404,7 +2404,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       } else if (field === "Soldering Material") {
         htriDynamicForm.innerHTML = selectRow("Material", "value", ["Copper", "Stainless Steel"]);
       } else if (field === "Gasket Material") {
-        htriDynamicForm.innerHTML = selectRow("Material", "value", ["NBR", "EPDM", "Viton-G"]);
+        htriDynamicForm.innerHTML = selectRow("Material", "value", ["NBR", "EPDM", "Viton", "Viton-G"]);
       } else if (["Operating Pressure", "Pressure drop"].includes(field)) {
         htriDynamicForm.innerHTML = html + inputRow("Hot Side", "hot") + inputRow("Cold Side", "cold") + inputRow("Unit", "unit");
       } else if (field === "Design Temperature") {
