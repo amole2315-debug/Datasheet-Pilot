@@ -969,7 +969,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           "316L": "A240-316L",
           "316": "A240-316",
           "Titanium": "SB-265 Gr.2",
-          "C-276": "SB-575 N10276"
+          "C-276": "SB-575"
         },
         KSJIS: {
           "304": "STS 304",
@@ -2002,11 +2002,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         const plateWithThickness = [plateMaterial, task.plateThickness || ""].filter(Boolean).join(" ");
         const frameMaterial = frameMaterialForStandard(task.frameMaterial || "C.S", standard);
         let changed = false;
-        if (this.setLabelNextAny(doc, "Plate material", plateWithThickness)) changed = true;
+        if (this.setMaterialValue(doc, "Plate material", plateWithThickness)) changed = true;
         if (productScope === "BPHE") {
           if (task.solderingMaterial && this.isBpheItem()) {
             const modelPrefix = solderingModelPrefix(task.solderingMaterial);
-            if (this.setLabelNextAny(doc, "Soldering Material", task.solderingMaterial)) changed = true;
+            if (this.setMaterialValue(doc, "Soldering Material", task.solderingMaterial)) changed = true;
             if (modelPrefix && this.replaceBpModelPrefix(doc, modelPrefix)) changed = true;
           }
           return changed;
@@ -2040,8 +2040,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         if (this.setConnectionRow(doc, "Flange Material", materialValues("Flange"))) changed = true;
         if (this.setConnectionRow(doc, "Nozzle Material", materialValues("Nozzle"))) changed = true;
         if (this.setConnectionRow(doc, "Lining Material", liningValues)) changed = true;
-        if (task.gasketMaterial && this.setLabelNextAny(doc, "Gasket Material", task.gasketMaterial)) changed = true;
-        if (this.setLabelNextAny(doc, "Frame material", frameMaterial)) changed = true;
+        if (task.gasketMaterial && this.setMaterialValue(doc, "Gasket Material", task.gasketMaterial)) changed = true;
+        if (this.setMaterialValue(doc, "Frame material", frameMaterial)) changed = true;
         if (this.updateFrameTypeMaterial(doc, frameMaterial)) changed = true;
         return changed;
       }
@@ -2296,6 +2296,30 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
               this.changes.push([label, old, value]);
               changed = true;
             }
+          }
+        }
+        return changed;
+      }
+
+      setMaterialValue(doc, label, value) {
+        let changed = this.setLabelNextAny(doc, label, value);
+        if (this.replaceInlineLabelValue(doc, label, value)) changed = true;
+        return changed;
+      }
+
+      replaceInlineLabelValue(doc, label, value) {
+        if (!value) return false;
+        let changed = false;
+        const labelPattern = label.replace(/\s+/g, "\\s+");
+        const pattern = new RegExp(`(${labelPattern}\\s*:\\s*)[^\\r\\n]*`, "i");
+        for (const cell of doc.getElementsByTagNameNS("*", "tc")) {
+          const old = this.cellText(cell);
+          if (!pattern.test(old)) continue;
+          const next = old.replace(pattern, `$1${value}`);
+          if (old !== next) {
+            this.setCellText(cell, next);
+            this.changes.push([label, old, next]);
+            changed = true;
           }
         }
         return changed;
