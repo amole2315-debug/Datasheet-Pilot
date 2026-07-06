@@ -11,10 +11,24 @@ const htriExcelCopyPs1Base64 = '77u/cGFyYW0oCiAgW1BhcmFtZXRlcihNYW5kYXRvcnk9JHRy
 function writeHtriExcelCopyScript(tempRoot) {
   const psPath = path.join(tempRoot, 'htri_excel_copy.ps1');
   let script = Buffer.from(htriExcelCopyPs1Base64, 'base64').toString('utf8');
-  const connectionBlock = "  if ($isGphe) {\r\n    Put $ds 'C40' (Override-Value $item 'Gasket Material' (T $ds 'C40'))\r\n    $connectionHot = Override-Value $item 'Connection Hot' ''\r\n    $connectionCold = Override-Value $item 'Connection Cold' ''\r\n    if (-not [string]::IsNullOrWhiteSpace([string]$connectionHot)) { Put $ds 'C42' $connectionHot }\r\n    if (-not [string]::IsNullOrWhiteSpace([string]$connectionCold)) { Put $ds 'G42' $connectionCold }\r\n  }\r\n}";
-  const patched = script.replace(/  if \(\$isGphe\) \{\r?\n    Put \$ds 'C40' \(Override-Value \$item 'Gasket Material' \(T \$ds 'C40'\)\)\r?\n  \}\r?\n\}/, connectionBlock);
-  if (patched === script) throw new Error('Failed to patch HTRI connection override script.');
-  script = patched;
+  const patchScript = (source, pattern, replacement, label) => {
+    const patched = source.replace(pattern, replacement);
+    if (patched === source) throw new Error(`Failed to patch HTRI ${label} script.`);
+    return patched;
+  };
+  const connectionBlock = "  if ($isGphe) {\r\n    Put $ds 'C40' (Override-Value $item 'Gasket Material' (T $ds 'C40'))\r\n    $plateMaterial = Override-Value $item 'Plate Material' ''\r\n    $frameMaterial = Override-Value $item 'Frame Material' 'C.S'\r\n    if (-not [string]::IsNullOrWhiteSpace([string]$plateMaterial)) { Put $ds 'C39' $plateMaterial }\r\n    Put $ds 'C43' $frameMaterial\r\n    $connectionHot = Override-Value $item 'Connection Hot' ''\r\n    $connectionCold = Override-Value $item 'Connection Cold' ''\r\n    if (-not [string]::IsNullOrWhiteSpace([string]$connectionHot)) { Put $ds 'C42' $connectionHot }\r\n    if (-not [string]::IsNullOrWhiteSpace([string]$connectionCold)) { Put $ds 'G42' $connectionCold }\r\n  }\r\n}";
+  script = patchScript(
+    script,
+    /  if \(\$isGphe\) \{\r?\n    Put \$ds 'C40' \(Override-Value \$item 'Gasket Material' \(T \$ds 'C40'\)\)\r?\n  \}\r?\n\}/,
+    connectionBlock,
+    'connection override'
+  );
+  script = patchScript(
+    script,
+    /Put \$ds 'C43' 'Stainless steel'/,
+    "Put $ds 'C43' 'C.S'",
+    'GPHE frame material'
+  );
   fs.writeFileSync(psPath, script, 'utf8');
   return psPath;
 }

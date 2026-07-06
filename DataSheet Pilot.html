@@ -3064,10 +3064,12 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if (isGphe) {
         setSheetValue(ws, "C32", model);
         setSheetValue(ws, "F35", summary["Plate Thickness"]);
+        setSheetValue(ws, "C40", summary["Gasket Material"] || "NBR");
         setSheetValue(ws, "C41", passes.length ? `${passes[0]} x ${passes[2] || passes[1] || ""}` : "");
         setSheetValue(ws, "G41", passes.length ? `${passes[3] || passes[0]} x ${passes[5] || passes[4] || ""}` : "");
         setSheetValue(ws, "C42", inlet.join(" "));
         setSheetValue(ws, "G42", outlet.join(" "));
+        setSheetValue(ws, "C43", summary["Frame Material"] || "C.S");
         setSheetValue(ws, "D45", designT[0]);
         setSheetValue(ws, "H45", designT[1] || designT[0]);
         setSheetValue(ws, "E46", designP[0]);
@@ -3661,7 +3663,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           putOverride(overrides, "Soldering Material", task.htriSolderingMaterial);
         }
         if ((task.productScope || "GPHE") !== "BPHE") {
+          const standard = connectionStandardPart(task.standard || "KS");
+          const baseMaterial = task.htriConnectionMaterial || "316L";
           const connection = connectionTaskDetails(task);
+          putOverride(overrides, "Plate Material", plateMaterialForStandard(baseMaterial, standard));
+          putOverride(overrides, "Frame Material", frameMaterialForStandard("C.S", standard));
           putOverride(overrides, "Connection Hot", connection.hotConnection);
           putOverride(overrides, "Connection Cold", connection.coldConnection);
           putOverride(overrides, "Inlet Connection", [connection.hotConnection]);
@@ -3803,6 +3809,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         "Plate Thickness": thickness.values[0] || "",
         "Nominal Plate Gap": gap.values[0] || "",
         "Plate Material": plateMaterial,
+        "Gasket Material": "NBR",
+        "Frame Material": "C.S",
         "Inlet Connection": inletConn.values,
         "Outlet Connection": outletConn.values
       };
