@@ -632,7 +632,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         "Mass flow rate", "Volume flowrate", "Operating Pressure", "Pressure drop"
       ],
       "Unit Data": [
-        "Design Temperature", "Design / Test Pressure", "Connection Type",
+        "Design Temperature", "Design / Test Pressure", "Connection / Material",
         "Soldering Material", "Plate material", "Gasket Material",
         "O.H.T.C", "Heat transfer area", "Number of plates", "Surface margin"
       ],
@@ -728,9 +728,16 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       { unit: "kcal/kg", from: ["kcal/kg"] },
       { unit: "kJ/kg", from: ["kJ/kg"] }
     ];
-    const CONNECTION_STANDARDS = ["KS 10k", "KS 16k", "KS 20k", "JIS 10k", "JIS 16k", "JIS 20k", "PN16", "PN20", "PN25", "ANSI 150#", "ANSI 300#"];
+    const CONNECTION_STANDARDS = ["KS", "JIS", "DIN", "ANSI"];
+    const CONNECTION_RATINGS = {
+      KS: ["10k", "16k", "20k"],
+      JIS: ["10k", "16k", "20k"],
+      DIN: ["PN16", "PN20", "PN25"],
+      ANSI: ["150#", "300#"]
+    };
     const CONNECTION_POSITIONS = ["F1", "F2", "F3", "F4", "L1", "L2", "L3", "L4"];
-    const CONNECTION_SIZES = ["25A(1B)", "32A(1-1/4B)", "40A(1-1/2B)", "50A(2B)", "65A(2-1/2B)", "80A(3B)", "100A(4B)", "125A(5B)", "150A(6B)", "200A(8B)", "250A(10B)", "300A(12B)"];
+    const CONNECTION_A_SIZES = ["25A", "32A", "40A", "50A", "65A", "80A", "100A", "125A", "150A", "200A", "250A", "300A"];
+    const CONNECTION_INCH_SIZES = ["1\"", "1-1/4\"", "1-1/2\"", "2\"", "2-1/2\"", "3\"", "4\"", "5\"", "6\"", "8\"", "10\"", "12\""];
     const CONNECTION_TYPES = ["UnLined", "MetalLined", "RubberLined", "SORF", "SOFF", "WNRF", "LapJoint"];
     const CONNECTION_BASE_MATERIALS = ["304", "316L", "316", "Titanium", "C-276"];
     const CONNECTION_FLANGE_MATERIALS = ["Auto", "-", "C.S.", "STS 304", "STS 316L", "STS 316", "A182 F304", "A182 F316L", "A182 F316"];
@@ -834,18 +841,58 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return String(rule || "").split(" -> ")[1] || "";
     }
 
+    function isConnectionField(field) {
+      return field === "Connection / Material" || field === "Connection Type";
+    }
+
+    function connectionStandardPart(value) {
+      const text = String(value || "KS").toUpperCase();
+      if (text.includes("ANSI") || text.includes("ASME")) return "ANSI";
+      if (text.includes("DIN") || text.includes("PN")) return "DIN";
+      if (text.includes("JIS")) return "JIS";
+      return "KS";
+    }
+
+    function connectionRatingOptions(standard) {
+      return CONNECTION_RATINGS[connectionStandardPart(standard)] || CONNECTION_RATINGS.KS;
+    }
+
+    function connectionRatingPart(value, standard) {
+      const text = String(value || "");
+      const options = connectionRatingOptions(standard);
+      const found = options.find(option => text.toUpperCase().includes(option.toUpperCase()));
+      return found || options[0];
+    }
+
+    function connectionRatingLabel(standard, rating) {
+      const kind = connectionStandardPart(standard);
+      const value = connectionRatingPart(rating, kind);
+      if (kind === "DIN") return value;
+      return `${kind} ${value}`;
+    }
+
+    function connectionSizeOptions(standard) {
+      return connectionStandardPart(standard) === "ANSI" ? CONNECTION_INCH_SIZES : CONNECTION_A_SIZES;
+    }
+
+    function connectionSizePart(value, standard) {
+      const text = String(value || "");
+      const options = connectionSizeOptions(standard);
+      const parenMatch = text.match(/\(([^)]+?)B\)/i);
+      const normalized = parenMatch ? `${parenMatch[1]}"` : text;
+      const found = options.find(option => option.toUpperCase() === normalized.toUpperCase());
+      return found || options[Math.min(3, options.length - 1)];
+    }
+
     function connectionFamily(standard) {
-      const text = String(standard || "").toUpperCase();
-      if (text.includes("ANSI") || text.includes("ASME")) return "ASME";
-      if (text.includes("PN") || text.includes("DIN")) return "DIN";
+      const text = connectionStandardPart(standard);
+      if (text === "ANSI") return "ASME";
+      if (text === "DIN") return "DIN";
       return "KSJIS";
     }
 
     function connectionSizeForStandard(size, standard) {
-      const family = connectionFamily(standard);
-      if (family !== "ASME") return size || "";
-      const match = String(size || "").match(/\(([^)]+?)B\)/i);
-      return match ? `${match[1]}"` : size || "";
+      return connectionSizePart(size, standard);
     }
 
     function plateMaterialForStandard(base, standard) {
@@ -1186,6 +1233,19 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       `;
     }
 
+    function scopedConnectionRows(prefix, title, standard) {
+      const keyPrefix = prefix ? `${prefix}` : "all";
+      const labelPrefix = title ? `${title} ` : "";
+      return `
+        ${selectRow(`${labelPrefix}Rating`, `${keyPrefix}Rating`, connectionRatingOptions(standard))}
+        ${selectRow(`${labelPrefix}Size`, `${keyPrefix}Size`, connectionSizeOptions(standard), connectionSizePart("50A", standard))}
+        ${selectRow(`${labelPrefix}Type`, `${keyPrefix}ConnectionType`, CONNECTION_TYPES)}
+        ${selectRow(`${labelPrefix}Flange Material`, `${keyPrefix}FlangeMaterial`, CONNECTION_FLANGE_MATERIALS)}
+        ${selectRow(`${labelPrefix}Nozzle Material`, `${keyPrefix}NozzleMaterial`, CONNECTION_NOZZLE_MATERIALS)}
+        ${selectRow(`${labelPrefix}Lining Material`, `${keyPrefix}LiningMaterial`, CONNECTION_LINING_MATERIALS)}
+      `;
+    }
+
     function connectionFormHtml() {
       const positionRows = [
         ["Hot In Position", "hotInPosition", "F2"],
@@ -1193,15 +1253,25 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         ["Cold In Position", "coldInPosition", "F4"],
         ["Cold Out Position", "coldOutPosition", "F1"]
       ].map(([label, key, value]) => selectRow(label, key, CONNECTION_POSITIONS, value)).join("");
+      const standard = "KS";
       return `
-        ${selectRow("Standard", "standard", CONNECTION_STANDARDS)}
-        ${selectRow("Size", "size", CONNECTION_SIZES, "50A(2B)")}
-        ${selectRow("Type", "connectionType", CONNECTION_TYPES)}
-        ${selectRow("Plate base", "connectionPlateMaterial", CONNECTION_BASE_MATERIALS, "316L")}
+        ${selectRow("Standard", "standard", CONNECTION_STANDARDS, standard)}
+        ${selectRow("Apply range", "connectionScope", ["All same", "Hot / Cold", "Individual"])}
+        ${selectRow("Plate material", "connectionPlateMaterial", CONNECTION_BASE_MATERIALS, "316L")}
         ${selectRow("Frame material", "frameMaterial", ["C.S"])}
-        ${selectRow("Flange Material", "flangeMaterial", CONNECTION_FLANGE_MATERIALS)}
-        ${selectRow("Nozzle Material", "nozzleMaterial", CONNECTION_NOZZLE_MATERIALS)}
-        ${selectRow("Lining Material", "liningMaterial", CONNECTION_LINING_MATERIALS)}
+        <div data-connection-scope="All same">
+          ${scopedConnectionRows("all", "", standard)}
+        </div>
+        <div data-connection-scope="Hot / Cold" style="display:none">
+          ${scopedConnectionRows("hot", "Hot", standard)}
+          ${scopedConnectionRows("cold", "Cold", standard)}
+        </div>
+        <div data-connection-scope="Individual" style="display:none">
+          ${scopedConnectionRows("hotIn", "Hot In", standard)}
+          ${scopedConnectionRows("hotOut", "Hot Out", standard)}
+          ${scopedConnectionRows("coldIn", "Cold In", standard)}
+          ${scopedConnectionRows("coldOut", "Cold Out", standard)}
+        </div>
         ${positionRows}
       `;
     }
@@ -1223,6 +1293,39 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           renderDynamicForm(mode.value);
         });
       }
+      if (isConnectionField(field)) setupConnectionForm();
+    }
+
+    function updateSelectOptions(select, values, fallback) {
+      if (!select) return;
+      const previous = select.value;
+      select.innerHTML = values.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
+      if (values.includes(previous)) {
+        select.value = previous;
+      } else {
+        select.value = fallback || values[0] || "";
+      }
+    }
+
+    function setupConnectionForm() {
+      const standardSelect = dynamicForm.querySelector("[data-key='standard']");
+      const scopeSelect = dynamicForm.querySelector("[data-key='connectionScope']");
+      const refresh = () => {
+        const standard = standardSelect ? standardSelect.value : "KS";
+        dynamicForm.querySelectorAll("[data-key$='Rating']").forEach(select => {
+          updateSelectOptions(select, connectionRatingOptions(standard));
+        });
+        dynamicForm.querySelectorAll("[data-key$='Size']").forEach(select => {
+          updateSelectOptions(select, connectionSizeOptions(standard), connectionSizePart(select.value || "50A", standard));
+        });
+        const scope = scopeSelect ? scopeSelect.value : "All same";
+        dynamicForm.querySelectorAll("[data-connection-scope]").forEach(section => {
+          section.style.display = section.dataset.connectionScope === scope ? "" : "none";
+        });
+      };
+      if (standardSelect) standardSelect.addEventListener("change", refresh);
+      if (scopeSelect) scopeSelect.addEventListener("change", refresh);
+      refresh();
     }
 
     function currentModeLabel() {
@@ -1234,7 +1337,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if (mode === "Convert unit") {
         return selectRow("Target unit", "unitTarget", unitTargets.length ? unitTargets : [NO_UNIT_TARGET]);
       }
-      if (field === "Connection Type") {
+      if (isConnectionField(field)) {
         return connectionFormHtml();
       }
       if (["Media", "Temperature inlet", "Temperature outlet", "Mass flow rate", "Volume flowrate", "Operating Pressure", "Pressure drop"].includes(field)) {
@@ -1348,6 +1451,12 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           input.value = task[key] || "";
         }
       });
+      if (isConnectionField(task.field)) {
+        const standard = dynamicForm.querySelector("[data-key='standard']");
+        const scope = dynamicForm.querySelector("[data-key='connectionScope']");
+        if (standard) standard.dispatchEvent(new Event("change"));
+        if (scope) scope.dispatchEvent(new Event("change"));
+      }
     }
 
     function ensureOption(select, value) {
@@ -1368,8 +1477,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         ? ` (#${targetNumbers.join(", #")})`
         : "";
       if (task.mode === "convert") return `${task.field}: target ${task.unitTarget}${scope}`;
-      if (task.field === "Connection Type") {
-        const detail = [task.standard, task.size, task.connectionType, task.connectionPlateMaterial].filter(Boolean).join(" | ");
+      if (isConnectionField(task.field)) {
+        const detail = [task.standard, task.connectionScope, task.connectionPlateMaterial].filter(Boolean).join(" | ");
         return `${task.field}${detail ? `: ${detail}` : ""}${scope}`;
       }
       const parts = [task.field];
@@ -1519,7 +1628,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           if (task.mode === "convert") return this.convertRow(doc, field, task, true);
           return this.setTwoSidedRow(doc, field, task.hot || "", task.cold || "", task.unit || "");
         }
-        if (field === "Connection Type") {
+        if (isConnectionField(field)) {
           return this.applyConnectionTask(doc, task);
         }
         if (["Design Temperature", "Design / Test Pressure", "Heat transfer area", "Number of plates", "Surface margin", "Plate material", "Gasket Material"].includes(field)) {
@@ -1539,31 +1648,44 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       }
 
       applyConnectionTask(doc, task) {
-        const standard = task.standard || "KS 10k";
+        const standard = connectionStandardPart(task.standard || "KS");
         const baseMaterial = task.connectionPlateMaterial || "316L";
-        const type = task.connectionType || "UnLined";
-        const size = connectionSizeForStandard(task.size || "50A(2B)", standard);
         const positions = [
           task.hotInPosition || "F2",
           task.hotOutPosition || "F3",
           task.coldInPosition || "F4",
           task.coldOutPosition || "F1"
         ];
-        const same = value => [value, value, value, value];
-        const flange = autoConnectionMaterial(type, standard, baseMaterial, "flange", task.flangeMaterial);
-        const nozzle = autoConnectionMaterial(type, standard, baseMaterial, "nozzle", task.nozzleMaterial);
-        const lining = autoConnectionMaterial(type, standard, baseMaterial, "lining", task.liningMaterial);
+        const columns = ["hotIn", "hotOut", "coldIn", "coldOut"];
+        const valuesFor = (name, fallback) => columns.map(column => this.connectionScopedValue(task, name, column, fallback));
+        const types = valuesFor("ConnectionType", "UnLined");
+        const ratings = valuesFor("Rating", connectionRatingOptions(standard)[0]).map(value => connectionRatingLabel(standard, value));
+        const sizes = valuesFor("Size", connectionSizeOptions(standard)[Math.min(3, connectionSizeOptions(standard).length - 1)]).map(value => connectionSizeForStandard(value, standard));
+        const materialValues = component => columns.map((column, index) => {
+          const explicit = this.connectionScopedValue(task, `${component}Material`, column, "Auto");
+          return autoConnectionMaterial(types[index], standard, baseMaterial, component.toLowerCase(), explicit);
+        });
         let changed = false;
         if (this.setConnectionRow(doc, "Position", positions)) changed = true;
-        if (this.setConnectionRow(doc, "Rating", same(standard))) changed = true;
-        if (this.setConnectionRow(doc, "Size", same(size))) changed = true;
-        if (this.setConnectionRow(doc, "Type", same(type))) changed = true;
-        if (this.setConnectionRow(doc, "Flange Material", same(flange))) changed = true;
-        if (this.setConnectionRow(doc, "Nozzle Material", same(nozzle))) changed = true;
-        if (this.setConnectionRow(doc, "Lining Material", same(lining))) changed = true;
+        if (this.setConnectionRow(doc, "Rating", ratings)) changed = true;
+        if (this.setConnectionRow(doc, "Size", sizes)) changed = true;
+        if (this.setConnectionRow(doc, "Type", types)) changed = true;
+        if (this.setConnectionRow(doc, "Flange Material", materialValues("Flange"))) changed = true;
+        if (this.setConnectionRow(doc, "Nozzle Material", materialValues("Nozzle"))) changed = true;
+        if (this.setConnectionRow(doc, "Lining Material", materialValues("Lining"))) changed = true;
         if (this.setSingleRow(doc, "Plate material", plateMaterialForStandard(baseMaterial, standard), "")) changed = true;
         if (this.setSingleRow(doc, "Frame material", frameMaterialForStandard(task.frameMaterial || "C.S", standard), "")) changed = true;
         return changed;
+      }
+
+      connectionScopedValue(task, name, column, fallback) {
+        const scope = task.connectionScope || "All same";
+        if (scope === "Individual") return task[`${column}${name}`] || fallback;
+        if (scope === "Hot / Cold") {
+          const side = column.startsWith("hot") ? "hot" : "cold";
+          return task[`${side}${name}`] || fallback;
+        }
+        return task[`all${name}`] || task[name.charAt(0).toLowerCase() + name.slice(1)] || fallback;
       }
 
       convertPropertyUnitGroup(doc, family) {
