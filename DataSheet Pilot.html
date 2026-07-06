@@ -3948,10 +3948,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }
 
     function htriOutputName(item, summary, extension) {
-      const itemNo = safeFilenamePart(summary["Item No."], item.name.replace(/\.[^.]+$/i, ""));
       const model = safeFilenamePart(summary["Model"], "HTRI");
-      const plates = safeFilenamePart(summary["Number of plates"], "");
-      return [itemNo, model, plates].filter(Boolean).join("_") + "." + extension;
+      const plates = safeFilenamePart(plateText(summary["Number of plates"]), "");
+      return [model, plates, "Datasheet"].filter(Boolean).join("_") + "." + extension;
     }
 
     async function convertHtriViaServer(selected) {
@@ -3970,7 +3969,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if (!response.ok) throw new Error(await response.text());
       const disposition = response.headers.get("Content-Disposition") || "";
       const match = disposition.match(/filename\*?=(?:UTF-8''|\")?([^";]+)/i);
-      const filename = match ? decodeURIComponent(match[1].replace(/"/g, "")) : (selected.length > 1 ? "HTRI_Datasheets.zip" : "HTRI_Datasheet.xlsm");
+      const serverFilename = match ? decodeURIComponent(match[1].replace(/"/g, "")) : (selected.length > 1 ? "HTRI_Datasheets.zip" : "HTRI_Datasheet.xlsm");
+      const filename = selected.length === 1
+        ? htriOutputName(selected[0].item, { ...htriSummary(selected[0].item), ...htriOverridesFor(selected[0].index) }, "xlsm")
+        : serverFilename;
       const blob = await response.blob();
       console.log("HTRI download blob", { filename, size: blob.size });
       return { blob, filename };
@@ -4004,14 +4006,14 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         if (htriDownloadMode === "datasheet") {
           for (const entry of selected) await downloadHtriViaServer([entry]);
         } else {
-          if (selected.length === 1) {
-            const result = await convertHtriViaServer(selected);
+          if (selected.length >= 1) {
             const zip = new JSZip();
-            zip.file(result.filename, result.blob);
+            for (const entry of selected) {
+              const result = await convertHtriViaServer([entry]);
+              zip.file(result.filename, result.blob);
+            }
             const blob = await zip.generateAsync({ type: "blob" });
             triggerDownload(blob, "HTRI_Datasheets.zip");
-          } else {
-            await downloadHtriViaServer(selected);
           }
         }
         renderHtriPreview();
