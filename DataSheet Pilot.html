@@ -176,27 +176,38 @@
       margin: 2px 0 10px 128px;
       flex-wrap: wrap;
     }
-    .mode-switch {
-      display: flex;
-      gap: 6px;
-      margin: 2px 0 10px 128px;
-      flex-wrap: wrap;
-    }
     .duty-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(110px, .7fr);
+      grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1fr) minmax(110px, .7fr);
       gap: 8px;
       margin-bottom: 8px;
+      align-items: stretch;
     }
-    .duty-cell label {
-      display: block;
-      margin-bottom: 4px;
+    .duty-head {
       color: var(--muted);
       font-size: 12px;
+      font-weight: 650;
+      padding: 0 2px;
+    }
+    .duty-label {
+      display: flex;
+      align-items: center;
+      font-weight: 650;
+      min-height: 30px;
+    }
+    .duty-cell label {
+      display: none;
     }
     .duty-cell input, .duty-cell select {
       width: 100%;
       padding: 0 8px;
+    }
+    .duty-cell textarea {
+      width: 100%;
+      min-height: 30px;
+      height: 30px;
+      padding: 5px 8px;
+      resize: vertical;
     }
     .connection-pane {
       display: none;
@@ -1329,31 +1340,24 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
     function dutyValuesFormHtml() {
       return `
-        ${selectRow("Target row", "dutyField", DUTY_VALUE_FIELDS)}
-        <input type="hidden" data-key="dutyMode" value="Set value">
-        <div class="mode-switch" data-duty-mode-switch>
-          <button type="button" class="active" data-duty-mode-button="Set value">Set value</button>
-          <button type="button" data-duty-mode-button="Convert unit">Convert unit</button>
+        <div class="duty-grid">
+          <div></div>
+          <div class="duty-head">Hot</div>
+          <div class="duty-head">Cold</div>
+          <div class="duty-head">Unit</div>
+          ${DUTY_VALUE_FIELDS.map(dutyRowHtml).join("")}
         </div>
-        <div data-duty-mode="Set value">
-          <div class="duty-grid">
-            <div class="duty-cell">
-              <label for="dutyHot">Hot</label>
-              <textarea id="dutyHot" data-key="dutyHot"></textarea>
-            </div>
-            <div class="duty-cell">
-              <label for="dutyCold">Cold</label>
-              <textarea id="dutyCold" data-key="dutyCold"></textarea>
-            </div>
-            <div class="duty-cell" data-duty-unit-cell>
-              <label for="dutyUnit">Unit</label>
-              <select id="dutyUnit" data-key="dutyUnit"></select>
-            </div>
-          </div>
-        </div>
-        <div data-duty-mode="Convert unit" style="display:none">
-          ${selectRow("Target unit", "dutyUnitTarget", unitTargetsForConversionField("Heat capacity"))}
-        </div>
+      `;
+    }
+
+    function dutyRowHtml(field) {
+      const key = fieldKey(field);
+      const unitOptions = field === "Media" ? [""] : ["", ...unitTargetsForConversionField(field)];
+      return `
+        <div class="duty-label">${escapeHtml(field)}</div>
+        <div class="duty-cell"><textarea data-key="duty_${key}_hot"></textarea></div>
+        <div class="duty-cell"><textarea data-key="duty_${key}_cold"></textarea></div>
+        <div class="duty-cell">${field === "Media" ? "" : `<select data-key="duty_${key}_unit">${unitOptions.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("")}</select>`}</div>
       `;
     }
 
@@ -1429,7 +1433,6 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         });
       }
       if (isConnectionField(field)) setupConnectionForm();
-      if (field === "Duty Values") setupDutyValuesForm();
       if (field === "Unit Conversion") setupUnitConversionForm();
     }
 
@@ -1505,41 +1508,6 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       const refresh = () => {
         updateSelectOptions(target, unitTargetsForConversionField(field ? field.value : ""), "");
       };
-      if (field) field.addEventListener("change", refresh);
-      refresh();
-    }
-
-    function setupDutyValuesForm() {
-      const field = dynamicForm.querySelector("[data-key='dutyField']");
-      const mode = dynamicForm.querySelector("[data-key='dutyMode']");
-      const unit = dynamicForm.querySelector("[data-key='dutyUnit']");
-      const target = dynamicForm.querySelector("[data-key='dutyUnitTarget']");
-      const refresh = () => {
-        const dutyField = field ? field.value : "";
-        const unitOptions = unitTargetsForConversionField(dutyField);
-        const canConvert = dutyField !== "Media" && unitOptions.length > 0;
-        if (mode) {
-          const switchEl = dynamicForm.querySelector("[data-duty-mode-switch]");
-          if (switchEl) switchEl.style.display = dutyField === "Media" ? "none" : "";
-          if (!canConvert && mode.value === "Convert unit") mode.value = "Set value";
-        }
-        dynamicForm.querySelectorAll("[data-duty-mode-button]").forEach(button => {
-          button.classList.toggle("active", mode && button.dataset.dutyModeButton === mode.value);
-        });
-        const unitCell = dynamicForm.querySelector("[data-duty-unit-cell]");
-        if (unitCell) unitCell.style.display = dutyField === "Media" ? "none" : "";
-        if (unit) updateSelectOptions(unit, unitOptions, "");
-        dynamicForm.querySelectorAll("[data-duty-mode]").forEach(section => {
-          section.style.display = section.dataset.dutyMode === (mode ? mode.value : "Set value") ? "" : "none";
-        });
-        if (target) updateSelectOptions(target, unitOptions, "");
-      };
-      dynamicForm.querySelectorAll("[data-duty-mode-button]").forEach(button => {
-        button.addEventListener("click", () => {
-          if (mode) mode.value = button.dataset.dutyModeButton;
-          refresh();
-        });
-      });
       if (field) field.addEventListener("change", refresh);
       refresh();
     }
@@ -1686,22 +1654,6 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           unitTarget.value = task.unitTarget;
         }
       }
-      if (task.field === "Duty Values") {
-        const dutyField = dynamicForm.querySelector("[data-key='dutyField']");
-        const dutyMode = dynamicForm.querySelector("[data-key='dutyMode']");
-        const dutyUnit = dynamicForm.querySelector("[data-key='dutyUnit']");
-        const dutyTarget = dynamicForm.querySelector("[data-key='dutyUnitTarget']");
-        if (dutyField) dutyField.dispatchEvent(new Event("change"));
-        if (dutyMode) dutyMode.dispatchEvent(new Event("change"));
-        if (dutyUnit && task.dutyUnit) {
-          ensureOption(dutyUnit, task.dutyUnit);
-          dutyUnit.value = task.dutyUnit;
-        }
-        if (dutyTarget && task.dutyUnitTarget) {
-          ensureOption(dutyTarget, task.dutyUnitTarget);
-          dutyTarget.value = task.dutyUnitTarget;
-        }
-      }
     }
 
     function ensureOption(select, value) {
@@ -1723,10 +1675,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         : "";
       if (task.mode === "convert") return `${task.field}: target ${task.unitTarget}${scope}`;
       if (task.field === "Basic Info") return `${task.field}${scope}`;
-      if (task.field === "Duty Values") {
-        if (task.dutyMode === "Convert unit") return `${task.dutyField || "Duty"} -> ${task.dutyUnitTarget || ""}${scope}`;
-        return `${task.dutyField || "Duty"} | hot=${task.dutyHot || ""} | cold=${task.dutyCold || ""}${task.dutyUnit ? ` | unit=${task.dutyUnit}` : ""}${scope}`;
-      }
+      if (task.field === "Duty Values") return `${task.field}${scope}`;
       if (task.field === "Design Values") return `${task.field}${scope}`;
       if (task.field === "Unit Conversion") return `${task.unitField || "Unit"} -> ${task.unitTarget || ""}${scope}`;
       if (isConnectionField(task.field)) {
@@ -1921,13 +1870,15 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       }
 
       applyDutyValuesTask(doc, task) {
-        const field = task.dutyField || "";
-        if (!field) return false;
-        if (task.dutyMode === "Convert unit") {
-          if (!task.dutyUnitTarget) return false;
-          return this.convertRow(doc, field, { field, unitTarget: task.dutyUnitTarget }, true);
+        let changed = false;
+        for (const field of DUTY_VALUE_FIELDS) {
+          const key = fieldKey(field);
+          const hot = task[`duty_${key}_hot`] || "";
+          const cold = task[`duty_${key}_cold`] || "";
+          const unit = field === "Media" ? "" : task[`duty_${key}_unit`] || "";
+          if ((hot || cold || unit) && this.setTwoSidedRow(doc, field, hot, cold, unit)) changed = true;
         }
-        return this.setTwoSidedRow(doc, field, task.dutyHot || "", task.dutyCold || "", field === "Media" ? "" : task.dutyUnit || "");
+        return changed;
       }
 
       applyDesignValuesTask(doc, task) {
