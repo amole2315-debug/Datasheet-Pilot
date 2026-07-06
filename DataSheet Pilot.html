@@ -755,6 +755,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     const CONNECTION_FLANGE_MATERIALS = ["Auto", "-", "C.S.", "STS 304", "STS 316L", "STS 316", "A182 F304", "A182 F316L", "A182 F316"];
     const CONNECTION_NOZZLE_MATERIALS = ["Auto", "-", "SPPS38", "STS 304", "STS 316L", "STS 316", "A312 TP304", "A312 TP316L", "A312 TP316", "Titanium"];
     const CONNECTION_LINING_MATERIALS = ["Auto", "-", "STS 304", "STS 316L", "STS 316", "A240-304", "A240-316L", "A240-316", "Titanium"];
+    const CONNECTION_RUBBER_LINING_MATERIALS = ["NBR", "EPDM", "Viton", "Viton-G", "Natural Rubber"];
     const UNIT_RULE_CANDIDATES = {
       "Heat capacity": heatCapacityRules(),
       "Mass flow rate": unitRules(MASS_FLOW_UNITS),
@@ -987,6 +988,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     function connectionMaterialVisible(type, component) {
       const name = String(type || "UnLined");
       if (name === "UnLined") return false;
+      if (name === "RubberLined") return component === "lining";
       if (["SORF", "SOFF", "WNRF"].includes(name)) return component === "flange";
       return ["flange", "nozzle", "lining"].includes(component);
     }
@@ -1370,7 +1372,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           const prefix = row.dataset.connectionPrefix;
           const material = row.dataset.connectionMaterial;
           const typeSelect = dynamicForm.querySelector(`[data-key='${prefix}ConnectionType']`);
-          row.style.display = connectionMaterialVisible(typeSelect ? typeSelect.value : "UnLined", material) ? "" : "none";
+          const type = typeSelect ? typeSelect.value : "UnLined";
+          if (material === "lining") {
+            const select = row.querySelector("select");
+            const options = type === "RubberLined" ? CONNECTION_RUBBER_LINING_MATERIALS : CONNECTION_LINING_MATERIALS;
+            updateSelectOptions(select, options);
+          }
+          row.style.display = connectionMaterialVisible(type, material) ? "" : "none";
         });
       };
       const refresh = () => {
