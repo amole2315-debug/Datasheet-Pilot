@@ -1417,6 +1417,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       convertPropertyUnitGroup(doc, family) {
         const wantsKcal = String(family || "").toLowerCase().includes("kcal");
         const targets = [
+          ["O.H.T.C", wantsKcal ? "kcal/(m2*h*K)" : "W/(m2*K)", false],
           ["Specific heat capacity (Liquid)", wantsKcal ? "kcal/(kg*K)" : "kJ/(kg*K)", false],
           ["Thermal conductivity (Liquid)", wantsKcal ? "kcal/(m*h*K)" : "W/(m*K)", false],
           ["Latent heat", wantsKcal ? "kcal/kg" : "kJ/kg", false]
