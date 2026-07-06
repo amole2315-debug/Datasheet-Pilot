@@ -121,11 +121,7 @@ function Plates-FromName([string]$name) {
 }
 
 function Clear-KnownSlashCells($sheet, [bool]$isGphe) {
-  $cells = if ($isGphe) {
-    @('D12','H12','F45','F46')
-  } else {
-    @('D12','H12','F40','F41')
-  }
+  $cells = @('D12','H12')
   foreach ($addr in $cells) { Put $sheet $addr '' }
 }
 
@@ -260,9 +256,11 @@ function Apply-HtriValues($target, $source, $item, [string]$kind) {
     Put $ds 'C42' ((T $api 'I49') + ' ' + (T $api 'J49'))
     Put $ds 'G42' ((T $api 'S49') + ' ' + (T $api 'T49'))
     Put $ds 'D45' $minTemp
+    Put $ds 'F45' '/'
     Put $ds 'H45' $maxTemp
     Put $ds 'J45' '(Deg C)'
     Put $ds 'E46' $designPressure
+    Put $ds 'F46' '/'
     Put $ds 'G46' $testPressure
     Put $ds 'J46' '(barG)'
   } else {
@@ -277,9 +275,11 @@ function Apply-HtriValues($target, $source, $item, [string]$kind) {
     Put $ds 'G38' $totalUnits
     Put $ds 'C39' 'Stainless steel'
     Put $ds 'C40' $minTemp
+    Put $ds 'F40' '/'
     Put $ds 'G40' $maxTemp
     Put $ds 'J40' '(Deg C)'
     Put $ds 'C41' $designPressure
+    Put $ds 'F41' '/'
     Put $ds 'G41' $testPressure
     Put $ds 'J41' '(barG)'
   }
