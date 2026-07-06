@@ -297,6 +297,34 @@
       display: flex;
       flex-direction: column;
     }
+    .preview-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1.9fr) minmax(320px, .9fr);
+      min-height: 0;
+      flex: 1;
+    }
+    .preview-main {
+      min-width: 0;
+      min-height: 0;
+      border-right: 1px solid var(--line);
+      display: flex;
+    }
+    .preview-tasks {
+      min-width: 0;
+      min-height: 0;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+    }
+    .preview-tasks .group-title {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: 0;
+    }
+    .preview-tasks .task-list {
+      flex: 1;
+      height: auto;
+    }
     .preview pre {
       margin: 0;
       padding: 10px;
@@ -422,12 +450,6 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         <div class="form-actions">
           <button id="applyTaskBtn" class="primary">Apply</button>
         </div>
-        <div class="group-title">Task list</div>
-        <div id="taskList" class="task-list"></div>
-        <div class="task-actions">
-          <button id="editTaskBtn">Edit</button>
-          <button id="removeTaskBtn">Remove</button>
-        </div>
       </div>
     </section>
 
@@ -436,7 +458,19 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         <strong>Preview</strong>
         <span class="status">Only matched labels/cells are changed.</span>
       </div>
-      <pre id="previewText"></pre>
+      <div class="preview-body">
+        <div class="preview-main">
+          <pre id="previewText"></pre>
+        </div>
+        <div class="preview-tasks">
+          <div class="group-title">Task list</div>
+          <div id="taskList" class="task-list"></div>
+          <div class="task-actions">
+            <button id="editTaskBtn">Edit</button>
+            <button id="removeTaskBtn">Remove</button>
+          </div>
+        </div>
+      </div>
     </section>
     </div>
     <div id="htriPage" class="tab-page">
@@ -491,12 +525,6 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           <div class="form-actions">
             <button id="htriApplyTaskBtn" class="primary">Apply</button>
           </div>
-          <div class="group-title">Task list</div>
-          <div id="htriTaskList" class="task-list"></div>
-          <div class="task-actions">
-            <button id="htriEditTaskBtn">Edit</button>
-            <button id="htriRemoveTaskBtn">Remove</button>
-          </div>
         </div>
       </section>
 
@@ -505,7 +533,19 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           <strong>Preview</strong>
           <span class="status">HTRI xls/xlsx values and edits.</span>
         </div>
-        <pre id="htriPreviewText"></pre>
+        <div class="preview-body">
+          <div class="preview-main">
+            <pre id="htriPreviewText"></pre>
+          </div>
+          <div class="preview-tasks">
+            <div class="group-title">Task list</div>
+            <div id="htriTaskList" class="task-list"></div>
+            <div class="task-actions">
+              <button id="htriEditTaskBtn">Edit</button>
+              <button id="htriRemoveTaskBtn">Remove</button>
+            </div>
+          </div>
+        </div>
       </section>
     </div>
   </main>
