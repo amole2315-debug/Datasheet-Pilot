@@ -10,7 +10,12 @@ const htriExcelCopyPs1Base64 = '77u/cGFyYW0oCiAgW1BhcmFtZXRlcihNYW5kYXRvcnk9JHRy
 
 function writeHtriExcelCopyScript(tempRoot) {
   const psPath = path.join(tempRoot, 'htri_excel_copy.ps1');
-  fs.writeFileSync(psPath, Buffer.from(htriExcelCopyPs1Base64, 'base64'));
+  let script = Buffer.from(htriExcelCopyPs1Base64, 'base64').toString('utf8');
+  const connectionBlock = "  if ($isGphe) {\r\n    Put $ds 'C40' (Override-Value $item 'Gasket Material' (T $ds 'C40'))\r\n    $connectionHot = Override-Value $item 'Connection Hot' ''\r\n    $connectionCold = Override-Value $item 'Connection Cold' ''\r\n    if (-not [string]::IsNullOrWhiteSpace([string]$connectionHot)) { Put $ds 'C42' $connectionHot }\r\n    if (-not [string]::IsNullOrWhiteSpace([string]$connectionCold)) { Put $ds 'G42' $connectionCold }\r\n  }\r\n}";
+  const patched = script.replace(/  if \(\$isGphe\) \{\r?\n    Put \$ds 'C40' \(Override-Value \$item 'Gasket Material' \(T \$ds 'C40'\)\)\r?\n  \}\r?\n\}/, connectionBlock);
+  if (patched === script) throw new Error('Failed to patch HTRI connection override script.');
+  script = patched;
+  fs.writeFileSync(psPath, script, 'utf8');
   return psPath;
 }
 

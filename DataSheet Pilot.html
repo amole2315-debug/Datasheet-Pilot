@@ -1077,6 +1077,48 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return ["flange", "nozzle", "lining"].includes(component);
     }
 
+    function connectionScopedTaskValue(task, name, column, fallback) {
+      const scope = task.connectionScope || "All same";
+      if (scope === "Individual") return task[`${column}${name}`] || fallback;
+      if (scope === "Hot / Cold") {
+        const side = column.startsWith("hot") ? "hot" : "cold";
+        return task[`${side}${name}`] || fallback;
+      }
+      return task[`all${name}`] || task[name.charAt(0).toLowerCase() + name.slice(1)] || fallback;
+    }
+
+    function connectionTaskDetails(task) {
+      const standard = connectionStandardPart(task.standard || "KS");
+      const baseMaterial = task.connectionPlateMaterial || task.htriConnectionMaterial || "316L";
+      const columns = ["hotIn", "hotOut", "coldIn", "coldOut"];
+      const valuesFor = (name, fallback) => columns.map(column => connectionScopedTaskValue(task, name, column, fallback));
+      const types = valuesFor("ConnectionType", "UnLined");
+      const studFlags = valuesFor("StudType", false);
+      const ratings = valuesFor("Rating", connectionRatingOptions(standard)[0]).map(value => connectionRatingLabel(standard, value));
+      const sizes = valuesFor("Size", connectionSizeOptions(standard)[Math.min(3, connectionSizeOptions(standard).length - 1)]).map(value => connectionSizeForStandard(value, standard));
+      const materialValues = component => columns.map((column, index) => {
+        const explicit = connectionScopedTaskValue(task, `${component}Material`, column, "Auto");
+        return autoConnectionMaterial(types[index], standard, baseMaterial, component.toLowerCase(), explicit);
+      });
+      const liningValues = materialValues("Lining");
+      const displayTypes = types.map((type, index) => connectionDisplayType(type, liningValues[index], studFlags[index]));
+      const connectionTexts = columns.map((column, index) => `${ratings[index]} ${sizes[index]} ${displayTypes[index]}`.replace(/\s+/g, " ").trim());
+      const sideSummary = (inlet, outlet) => inlet === outlet ? inlet : `In: ${inlet} / Out: ${outlet}`;
+      return {
+        standard,
+        baseMaterial,
+        connectionTexts,
+        hotConnection: sideSummary(connectionTexts[0], connectionTexts[1]),
+        coldConnection: sideSummary(connectionTexts[2], connectionTexts[3]),
+        ratings,
+        sizes,
+        displayTypes,
+        flangeValues: materialValues("Flange"),
+        nozzleValues: materialValues("Nozzle"),
+        liningValues
+      };
+    }
+
     function availableUnitTargetsForField(field) {
       const candidates = UNIT_RULE_CANDIDATES[field] || [];
       if (!candidates.length) return [];
@@ -1547,23 +1589,23 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       }
     }
 
-    function setupConnectionForm() {
-      const standardSelect = dynamicForm.querySelector("[data-key='standard']");
-      const scopeSelect = dynamicForm.querySelector("[data-key='connectionScope']");
-      const productSelect = dynamicForm.querySelector("[data-key='productScope']");
+    function setupConnectionForm(container = dynamicForm) {
+      const standardSelect = container.querySelector("[data-key='standard']");
+      const scopeSelect = container.querySelector("[data-key='connectionScope']");
+      const productSelect = container.querySelector("[data-key='productScope']");
       const activateConnectionPane = (group, target) => {
-        dynamicForm.querySelectorAll(`[data-connection-group='${group}'] [data-connection-target]`).forEach(button => {
+        container.querySelectorAll(`[data-connection-group='${group}'] [data-connection-target]`).forEach(button => {
           button.classList.toggle("active", button.dataset.connectionTarget === target);
         });
-        dynamicForm.querySelectorAll(`[data-connection-pane-group='${group}']`).forEach(pane => {
+        container.querySelectorAll(`[data-connection-pane-group='${group}']`).forEach(pane => {
           pane.classList.toggle("active", pane.dataset.connectionPane === target);
         });
       };
       const refreshMaterialRows = () => {
-        dynamicForm.querySelectorAll("[data-connection-material-row]").forEach(row => {
+        container.querySelectorAll("[data-connection-material-row]").forEach(row => {
           const prefix = row.dataset.connectionPrefix;
           const material = row.dataset.connectionMaterial;
-          const typeSelect = dynamicForm.querySelector(`[data-key='${prefix}ConnectionType']`);
+          const typeSelect = container.querySelector(`[data-key='${prefix}ConnectionType']`);
           const type = typeSelect ? typeSelect.value : "UnLined";
           if (material === "lining") {
             const select = row.querySelector("select");
@@ -1572,40 +1614,40 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           }
           row.style.display = connectionMaterialVisible(type, material) ? "" : "none";
         });
-        dynamicForm.querySelectorAll("[data-connection-stud-row]").forEach(row => {
+        container.querySelectorAll("[data-connection-stud-row]").forEach(row => {
           const prefix = row.dataset.connectionPrefix;
-          const typeSelect = dynamicForm.querySelector(`[data-key='${prefix}ConnectionType']`);
+          const typeSelect = container.querySelector(`[data-key='${prefix}ConnectionType']`);
           row.style.display = (typeSelect && typeSelect.value === "MetalLined") ? "" : "none";
         });
       };
       const refresh = () => {
         const productScope = productSelect ? productSelect.value : "GPHE";
-        dynamicForm.querySelectorAll("[data-product-section]").forEach(section => {
+        container.querySelectorAll("[data-product-section]").forEach(section => {
           const sectionScope = section.dataset.productSection;
           section.style.display = sectionScope === "common" || sectionScope === productScope ? "" : "none";
         });
         const standard = standardSelect ? standardSelect.value : "KS";
-        dynamicForm.querySelectorAll("[data-key$='Rating']").forEach(select => {
+        container.querySelectorAll("[data-key$='Rating']").forEach(select => {
           updateSelectOptions(select, connectionRatingOptions(standard));
         });
-        dynamicForm.querySelectorAll("[data-key$='Size']").forEach(select => {
+        container.querySelectorAll("[data-key$='Size']").forEach(select => {
           updateSelectOptions(select, connectionSizeOptions(standard), connectionSizePart(select.value || "50A", standard));
         });
         const scope = scopeSelect ? scopeSelect.value : "All same";
-        dynamicForm.querySelectorAll("[data-connection-scope]").forEach(section => {
+        container.querySelectorAll("[data-connection-scope]").forEach(section => {
           section.style.display = section.dataset.connectionScope === scope ? "" : "none";
         });
         if (scope === "Hot / Cold") activateConnectionPane("hotCold", "hot");
         if (scope === "Individual") activateConnectionPane("individual", "hotIn");
         refreshMaterialRows();
       };
-      dynamicForm.querySelectorAll("[data-connection-target]").forEach(button => {
+      container.querySelectorAll("[data-connection-target]").forEach(button => {
         button.addEventListener("click", () => {
           const group = button.closest("[data-connection-group]").dataset.connectionGroup;
           activateConnectionPane(group, button.dataset.connectionTarget);
         });
       });
-      dynamicForm.querySelectorAll("[data-key$='ConnectionType']").forEach(select => {
+      container.querySelectorAll("[data-key$='ConnectionType']").forEach(select => {
         select.addEventListener("change", refreshMaterialRows);
       });
       if (standardSelect) standardSelect.addEventListener("change", refresh);
@@ -3193,11 +3235,54 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
     function htriMaterialFormHtml() {
       const kinds = selectedKinds(htriFiles);
-      const showSoldering = !kinds.length || kinds.includes("BPHE");
+      const scopeOptions = kinds.length ? kinds : ["GPHE"];
+      const scope = scopeOptions[0] || "GPHE";
+      const scopeControl = scopeOptions.length > 1
+        ? selectRow("Apply product", "productScope", scopeOptions, scope)
+        : `<input type="hidden" data-key="productScope" value="${escapeHtml(scope)}">`;
+      const standard = "KS";
+      const positionRows = [
+        ["Hot In Position", "hotInPosition", "F2"],
+        ["Hot Out Position", "hotOutPosition", "F3"],
+        ["Cold In Position", "coldInPosition", "F4"],
+        ["Cold Out Position", "coldOutPosition", "F1"]
+      ].map(([label, key, value]) => selectRow(label, key, CONNECTION_POSITIONS, value)).join("");
       return `
         <div class="kind-summary">Selected: ${escapeHtml(kinds.length ? kinds.join(" + ") : "None")}</div>
-        ${showSoldering ? selectRow("Soldering Material", "htriSolderingMaterial", ["", "Copper", "Stainless Steel"]) : ""}
+        ${scopeControl}
         ${selectRow("Gasket Material", "htriGasketMaterial", ["", "NBR", "EPDM", "Viton", "Viton-G"])}
+        <div data-product-section="BPHE">
+          ${selectRow("Soldering Material", "htriSolderingMaterial", ["", "Copper", "Stainless Steel"])}
+        </div>
+        <div data-product-section="GPHE">
+          ${selectRow("Connection material", "htriConnectionMaterial", CONNECTION_BASE_MATERIALS, "316L")}
+          ${selectRow("Standard", "standard", CONNECTION_STANDARDS, standard)}
+          ${selectRow("Apply range", "connectionScope", ["All same", "Hot / Cold", "Individual"])}
+          <div data-connection-scope="All same">
+            ${scopedConnectionRows("all", "", standard)}
+          </div>
+          <div data-connection-scope="Hot / Cold" style="display:none">
+            ${connectionScopeButtons("htriHotCold", [{ key: "hot", label: "Hot" }, { key: "cold", label: "Cold" }])}
+            ${connectionPane("htriHotCold", "hot", scopedConnectionRows("hot", "Hot", standard), true)}
+            ${connectionPane("htriHotCold", "cold", scopedConnectionRows("cold", "Cold", standard))}
+          </div>
+          <div data-connection-scope="Individual" style="display:none">
+            ${connectionScopeButtons("htriIndividual", [
+              { key: "hotIn", label: "Hot In" },
+              { key: "hotOut", label: "Hot Out" },
+              { key: "coldIn", label: "Cold In" },
+              { key: "coldOut", label: "Cold Out" }
+            ])}
+            ${connectionPane("htriIndividual", "hotIn", scopedConnectionRows("hotIn", "Hot In", standard), true)}
+            ${connectionPane("htriIndividual", "hotOut", scopedConnectionRows("hotOut", "Hot Out", standard))}
+            ${connectionPane("htriIndividual", "coldIn", scopedConnectionRows("coldIn", "Cold In", standard))}
+            ${connectionPane("htriIndividual", "coldOut", scopedConnectionRows("coldOut", "Cold Out", standard))}
+          </div>
+          <details class="connection-details">
+            <summary>Position</summary>
+            ${positionRows}
+          </details>
+        </div>
       `;
     }
 
@@ -3295,6 +3380,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         mode.value = modeValue;
         mode.addEventListener("change", () => renderHtriDynamicForm(mode.value));
       }
+      if (field === "Material") setupConnectionForm(htriDynamicForm);
       if (field === "Unit Conversion") setupHtriUnitConversionForm();
     }
 
@@ -3326,6 +3412,14 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         return;
       }
       const task = collectHtriFormValues();
+      if (task.field === "Material" && task.productScope) {
+        const scopedTargets = targets.filter(index => htriFiles[index] && htriFiles[index].kind === task.productScope);
+        if (!scopedTargets.length) {
+          alert(`No selected ${task.productScope} HTRI files for this task.`);
+          return;
+        }
+        targets.splice(0, targets.length, ...scopedTargets);
+      }
       task.targets = targets;
       task.targetNames = targets.map(index => htriFiles[index].name);
       task.targetNumbers = targets.map(index => index + 1);
@@ -3522,8 +3616,17 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         return true;
       }
       if (task.field === "Material") {
-        putOverride(overrides, "Soldering Material", task.htriSolderingMaterial);
         putOverride(overrides, "Gasket Material", task.htriGasketMaterial);
+        if ((task.productScope || "") !== "GPHE") {
+          putOverride(overrides, "Soldering Material", task.htriSolderingMaterial);
+        }
+        if ((task.productScope || "GPHE") !== "BPHE") {
+          const connection = connectionTaskDetails(task);
+          putOverride(overrides, "Connection Hot", connection.hotConnection);
+          putOverride(overrides, "Connection Cold", connection.coldConnection);
+          putOverride(overrides, "Inlet Connection", [connection.hotConnection]);
+          putOverride(overrides, "Outlet Connection", [connection.coldConnection]);
+        }
         return true;
       }
       if (task.field === "Duty Values") {
