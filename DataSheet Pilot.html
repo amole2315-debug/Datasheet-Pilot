@@ -789,9 +789,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     const CONNECTION_TYPES = ["UnLined", "MetalLined", "RubberLined", "SORF", "SOFF", "WNRF", "LapJoint"];
     const CONNECTION_BASE_MATERIALS = ["304", "316L", "316", "Titanium", "C-276"];
     const CONNECTION_PLATE_THICKNESSES = ["", "0.5t", "0.6t", "0.7t"];
-    const CONNECTION_FLANGE_MATERIALS = ["Auto", "-", "C.S.", "STS 304", "STS 316L", "STS 316", "A182 F304", "A182 F316L", "A182 F316"];
-    const CONNECTION_NOZZLE_MATERIALS = ["Auto", "-", "SPPS38", "STS 304", "STS 316L", "STS 316", "A312 TP304", "A312 TP316L", "A312 TP316", "Titanium"];
-    const CONNECTION_LINING_MATERIALS = ["Auto", "-", "STS 304", "STS 316L", "STS 316", "A240-304", "A240-316L", "A240-316", "Titanium"];
+    const CONNECTION_FLANGE_MATERIALS = ["Auto", "-", "C.S.", "STS304", "STS316L", "STS316", "A182 F304", "A182 F316L", "A182 F316"];
+    const CONNECTION_NOZZLE_MATERIALS = ["Auto", "-", "SPPS38", "STS304", "STS316L", "STS316", "A312 TP304", "A312 TP316L", "A312 TP316", "Titanium"];
+    const CONNECTION_LINING_MATERIALS = ["Auto", "-", "STS304", "STS316L", "STS316", "A240-304", "A240-316L", "A240-316", "Titanium"];
     const CONNECTION_RUBBER_LINING_MATERIALS = ["NBR", "EPDM", "Viton", "Viton-G", "Natural Rubber"];
     const UNIT_RULE_CANDIDATES = {
       "Heat capacity": heatCapacityRules(),
@@ -972,9 +972,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           "C-276": "SB-575"
         },
         KSJIS: {
-          "304": "STS 304",
-          "316L": "STS 316L",
-          "316": "STS 316",
+          "304": "STS304",
+          "316L": "STS316L",
+          "316": "STS316",
           "Titanium": "Titanium",
           "C-276": "C-276"
         },
@@ -997,14 +997,14 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           return ({ "304": "A182 F304", "316L": "A182 F316L", "316": "A182 F316" })[key] || plateMaterialForStandard(key, standard);
         }
         if (family === "DIN") return plateMaterialForStandard(key, standard);
-        return ({ "304": "STS 304", "316L": "STS 316L", "316": "STS 316" })[key] || plateMaterialForStandard(key, standard);
+        return ({ "304": "STS304", "316L": "STS316L", "316": "STS316" })[key] || plateMaterialForStandard(key, standard);
       }
       if (component === "nozzle") {
         if (family === "ASME") {
           return ({ "304": "A312 TP304", "316L": "A312 TP316L", "316": "A312 TP316" })[key] || plateMaterialForStandard(key, standard);
         }
         if (family === "DIN") return plateMaterialForStandard(key, standard);
-        return ({ "304": "STS 304", "316L": "STS 316L", "316": "STS 316" })[key] || plateMaterialForStandard(key, standard);
+        return ({ "304": "STS304", "316L": "STS316L", "316": "STS316" })[key] || plateMaterialForStandard(key, standard);
       }
       return plateMaterialForStandard(key, standard);
     }
