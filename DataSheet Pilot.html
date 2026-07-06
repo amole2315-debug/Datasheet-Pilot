@@ -876,6 +876,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return label === want || label.includes(want);
     }
 
+    function rowLabelEquals(text, target) {
+      return cleanLabel(text) === cleanLabel(target);
+    }
+
     function canonicalUnit(text) {
       return String(text || "")
         .replace(/²/g, "2")
@@ -2284,7 +2288,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         for (const row of this.rows(doc)) {
           const cells = this.cells(row);
           for (let i = 0; i < cells.length - 1; i += 1) {
-            if (!rowLabelMatches(this.cellText(cells[i]), label)) continue;
+            if (!rowLabelEquals(this.cellText(cells[i]), label)) continue;
             const cell = cells[i + 1];
             const old = this.cellText(cell);
             if (old !== value) {
@@ -2302,7 +2306,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         for (const row of this.rows(doc)) {
           const cells = this.cells(row);
           for (let i = 0; i < cells.length - 1; i += 1) {
-            if (!rowLabelMatches(this.cellText(cells[i]), "Frame type / material")) continue;
+            if (!rowLabelEquals(this.cellText(cells[i]), "Frame type / material")) continue;
             const cell = cells[i + 1];
             const old = this.cellText(cell);
             const next = frameMaterial === "SA-516 Gr.70"
