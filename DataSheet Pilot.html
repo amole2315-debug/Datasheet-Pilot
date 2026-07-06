@@ -183,6 +183,9 @@
       margin-bottom: 8px;
       align-items: stretch;
     }
+    .design-grid {
+      grid-template-columns: 160px minmax(0, 1fr) minmax(110px, .55fr);
+    }
     .duty-head {
       color: var(--muted);
       font-size: 12px;
@@ -422,7 +425,6 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         <div class="group-title">Task list</div>
         <div id="taskList" class="task-list"></div>
         <div class="task-actions">
-          <button id="previewBtn">Preview</button>
           <button id="editTaskBtn">Edit</button>
           <button id="removeTaskBtn">Remove</button>
         </div>
@@ -1436,11 +1438,19 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }
 
     function designValuesFormHtml() {
+      const pressureUnits = ["", ...unitTargetsForConversionField("Design / Test Pressure")];
       return `
-        ${inputRow("Design Temperature", "designTemperatureValue")}
-        ${inputRow("Design Temperature Unit", "designTemperatureUnit")}
-        ${inputRow("Design / Test Pressure", "designPressureValue")}
-        ${inputRow("Design / Test Pressure Unit", "designPressureUnit")}
+        <div class="duty-grid design-grid">
+          <div></div>
+          <div class="duty-head">Value</div>
+          <div class="duty-head">Unit</div>
+          <div class="duty-label">Design Temperature</div>
+          <div class="duty-cell"><textarea data-key="designTemperatureValue"></textarea></div>
+          <div class="duty-cell"><select data-key="designTemperatureUnit"><option value=""></option><option value="°C">°C</option></select></div>
+          <div class="duty-label">Design / Test Pressure</div>
+          <div class="duty-cell"><textarea data-key="designPressureValue" placeholder="10.0 / 13.0"></textarea></div>
+          <div class="duty-cell"><select data-key="designPressureUnit">${pressureUnits.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("")}</select></div>
+        </div>
       `;
     }
 
@@ -1712,6 +1722,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       }
       renderTasks();
       updateApplyButton();
+      preview();
     }
 
     function removeTask() {
@@ -1796,6 +1807,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if (task.field === "Duty Values") return `${task.field}${scope}`;
       if (task.field === "Design Values") return `${task.field}${scope}`;
       if (task.field === "Unit Conversion") return `${task.unitField || "Unit"} -> ${task.unitTarget || ""}${scope}`;
+      if (task.field === "Property Unit Group") return `${task.field}: ${task.value || "J"}${scope}`;
       if (isConnectionField(task.field)) {
         const detail = [task.productScope, task.standard, task.connectionScope, task.connectionPlateMaterial].filter(Boolean).join(" | ");
         return `${task.field}${detail ? `: ${detail}` : ""}${scope}`;
@@ -2083,14 +2095,19 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       convertPropertyUnitGroup(doc, family) {
         const wantsKcal = String(family || "").toLowerCase().includes("kcal");
         const targets = [
-          ["O.H.T.C", wantsKcal ? "kcal/(m2*h*K)" : "W/(m2*K)", false],
-          ["Specific heat capacity (Liquid)", wantsKcal ? "kcal/(kg*K)" : "kJ/(kg*K)", false],
-          ["Thermal conductivity (Liquid)", wantsKcal ? "kcal/(m*h*K)" : "W/(m*K)", false],
-          ["Latent heat", wantsKcal ? "kcal/kg" : "kJ/kg", false]
+          { labels: ["O.H.T.C", "OHTC"], field: "O.H.T.C", unit: wantsKcal ? "kcal/(m2*h*K)" : "W/(m2*K)", twoSided: false },
+          { labels: ["Specific heat capacity (Liquid)", "Specific heat capacity (Liquid/Vapor)"], field: "Specific heat capacity (Liquid)", unit: wantsKcal ? "kcal/(kg*K)" : "kJ/(kg*K)", twoSided: false },
+          { labels: ["Thermal conductivity (Liquid)", "Thermal conductivity (Liquid/Vapor)"], field: "Thermal conductivity (Liquid)", unit: wantsKcal ? "kcal/(m*h*K)" : "W/(m*K)", twoSided: false },
+          { labels: ["Latent heat"], field: "Latent heat", unit: wantsKcal ? "kcal/kg" : "kJ/kg", twoSided: false }
         ];
         let changed = false;
-        for (const [label, unit, twoSided] of targets) {
-          if (this.convertRow(doc, label, { field: label, unitTarget: unit }, twoSided)) changed = true;
+        for (const target of targets) {
+          for (const label of target.labels) {
+            if (this.convertRow(doc, label, { field: target.field, unitTarget: target.unit }, target.twoSided)) {
+              changed = true;
+              break;
+            }
+          }
         }
         return changed;
       }
@@ -3679,7 +3696,6 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     document.getElementById("applyTaskBtn").addEventListener("click", applyTaskFromForm);
     document.getElementById("editTaskBtn").addEventListener("click", editTask);
     document.getElementById("removeTaskBtn").addEventListener("click", removeTask);
-    document.getElementById("previewBtn").addEventListener("click", preview);
     document.getElementById("downloadZipBtn").addEventListener("click", () => setDownloadMode("zip"));
     document.getElementById("downloadFilesBtn").addEventListener("click", () => setDownloadMode("files"));
     document.getElementById("downloadBtn").addEventListener("click", downloadSelectedMode);
