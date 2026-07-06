@@ -328,8 +328,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
     <section class="side">
       <div class="toolbar">
-        <button id="downloadZipBtn" class="active">ZIP</button>
-        <button id="downloadFilesBtn">Files</button>
+        <button id="downloadZipBtn">ZIP</button>
+        <button id="downloadFilesBtn" class="active">Files</button>
         <button id="downloadBtn" class="primary">Download</button>
       </div>
       <div class="side-body">
@@ -746,7 +746,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     const tasks = [];
     let selectedTaskIndex = -1;
     let editingTaskIndex = -1;
-    let downloadMode = "zip";
+    let downloadMode = "files";
     let htriDownloadMode = "datasheet";
     let isReorderingFiles = false;
 
@@ -1938,9 +1938,14 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         alert("Load files and add at least one task.");
         return null;
       }
+      const selectedFiles = files.map((item, index) => ({ item, index })).filter(entry => entry.item.selected !== false);
+      if (!selectedFiles.length) {
+        alert("Select at least one file to download.");
+        return null;
+      }
       const corrected = [];
       const errors = [];
-      for (const [index, item] of files.entries()) {
+      for (const { item, index } of selectedFiles) {
         try {
           const editor = await DocxEditor.fromFile(item);
           const itemTasks = tasks.filter(task => task.targets && task.targets.includes(index));
