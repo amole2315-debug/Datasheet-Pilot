@@ -1582,6 +1582,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       const scopeControl = scopeOptions.length > 1
         ? selectRow("Apply product", "productScope", scopeOptions, scope)
         : `<input type="hidden" data-key="productScope" value="${escapeHtml(scope)}">`;
+      const bpheConnectionModels = selectedMpxBpheConnectionFamilies();
+      const bpheConnectionModel = bpheConnectionModels[0] || "MC20";
+      const bpheConnectionValues = bpheConnectionOptions(bpheConnectionModel);
       return `
         <div class="kind-summary">Selected: ${escapeHtml(productScopeSummary())}</div>
         ${scopeControl}
@@ -1591,6 +1594,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         </div>
         <div data-product-section="BPHE">
           ${selectRow("Soldering Material", "solderingMaterial", ["", "SUS", "Copper"])}
+          ${selectRow("BPHE Model", "bpheConnectionModel", bpheConnectionModels, bpheConnectionModel)}
+          ${selectRow("Hot In Connection", "bpheHotInConnection", bpheConnectionValues)}
+          ${selectRow("Hot Out Connection", "bpheHotOutConnection", bpheConnectionValues)}
+          ${selectRow("Cold In Connection", "bpheColdInConnection", bpheConnectionValues)}
+          ${selectRow("Cold Out Connection", "bpheColdOutConnection", bpheConnectionValues)}
         </div>
         <div data-product-section="GPHE">
         ${selectRow("Standard", "standard", CONNECTION_STANDARDS, standard)}
@@ -1660,6 +1668,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       const standardSelect = container.querySelector("[data-key='standard']");
       const scopeSelect = container.querySelector("[data-key='connectionScope']");
       const productSelect = container.querySelector("[data-key='productScope']");
+      const mpxBpheModelSelect = container.querySelector("[data-key='bpheConnectionModel']");
       const bpheModelSelect = container.querySelector("[data-key='htriBpheConnectionModel']");
       const bpheConnectionSelect = container.querySelector("[data-key='htriBpheConnection']");
       const activateConnectionPane = (group, target) => {
@@ -1698,6 +1707,12 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         if (bpheModelSelect && bpheConnectionSelect) {
           updateSelectOptions(bpheConnectionSelect, bpheConnectionOptions(bpheModelSelect.value));
         }
+        if (mpxBpheModelSelect) {
+          const options = bpheConnectionOptions(mpxBpheModelSelect.value);
+          container.querySelectorAll("[data-key^='bphe'][data-key$='Connection']").forEach(select => {
+            updateSelectOptions(select, options);
+          });
+        }
         const standard = standardSelect ? standardSelect.value : "KS";
         container.querySelectorAll("[data-key$='Rating']").forEach(select => {
           updateSelectOptions(select, connectionRatingOptions(standard));
@@ -1727,6 +1742,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if (standardSelect) standardSelect.addEventListener("change", refresh);
       if (scopeSelect) scopeSelect.addEventListener("change", refresh);
       if (productSelect) productSelect.addEventListener("change", refresh);
+      if (mpxBpheModelSelect) mpxBpheModelSelect.addEventListener("change", refresh);
       if (bpheModelSelect) bpheModelSelect.addEventListener("change", refresh);
       refresh();
     }
@@ -2158,6 +2174,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
             if (this.setMaterialValue(doc, "Soldering Material", task.solderingMaterial)) changed = true;
             if (modelPrefix && this.replaceBpModelPrefix(doc, modelPrefix)) changed = true;
           }
+          const hotConnection = this.bpheConnectionPair(task.bpheHotInConnection, task.bpheHotOutConnection);
+          const coldConnection = this.bpheConnectionPair(task.bpheColdInConnection, task.bpheColdOutConnection);
+          if ((hotConnection || coldConnection) && this.setConnectionSummaryRow(doc, hotConnection, coldConnection)) changed = true;
           return changed;
         }
         const positions = [
@@ -2197,6 +2216,12 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
       connectionSideSummary(inlet, outlet) {
         return inlet === outlet ? inlet : `In: ${inlet} / Out: ${outlet}`;
+      }
+
+      bpheConnectionPair(inlet, outlet) {
+        const first = inlet || outlet || "";
+        const second = outlet || inlet || "";
+        return first && second ? `${first} / ${second}` : first || second;
       }
 
       connectionScopedValue(task, name, column, fallback) {
@@ -2789,6 +2814,16 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         const summary = htriSummary(item);
         if ((summary["Product Type"] || item.kind) !== "BPHE") return;
         const family = bpheConnectionFamily(summary["Model"] || item.result || item.name);
+        if (family && !families.includes(family)) families.push(family);
+      });
+      return families.length ? families : Object.keys(BPHE_CONNECTION_OPTIONS_BY_MODEL);
+    }
+
+    function selectedMpxBpheConnectionFamilies() {
+      const families = [];
+      files.filter(item => item.selected !== false).forEach(item => {
+        if (item.kind !== "BPHE") return;
+        const family = bpheConnectionFamily(item.result || item.name);
         if (family && !families.includes(family)) families.push(family);
       });
       return families.length ? families : Object.keys(BPHE_CONNECTION_OPTIONS_BY_MODEL);
