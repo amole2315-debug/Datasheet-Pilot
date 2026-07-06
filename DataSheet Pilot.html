@@ -215,6 +215,23 @@
     .connection-pane.active {
       display: block;
     }
+    details.connection-details {
+      margin-top: 8px;
+    }
+    details.connection-details summary {
+      height: 30px;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      background: #fff;
+      cursor: pointer;
+      user-select: none;
+    }
+    details.connection-details[open] summary {
+      margin-bottom: 8px;
+    }
     .kind-summary {
       margin: 0 0 10px;
       padding: 8px 10px;
@@ -1481,7 +1498,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           ${connectionPane("individual", "coldIn", scopedConnectionRows("coldIn", "Cold In", standard))}
           ${connectionPane("individual", "coldOut", scopedConnectionRows("coldOut", "Cold Out", standard))}
         </div>
-        ${positionRows}
+        <details class="connection-details">
+          <summary>Position</summary>
+          ${positionRows}
+        </details>
         </div>
       `;
     }
