@@ -414,7 +414,6 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         <button id="selectAllBtn">All</button>
         <button id="selectGpheBtn">GPHE</button>
         <button id="selectBpheBtn">BPHE</button>
-        <button id="selectNoneBtn">None</button>
         <button id="deleteSelectedBtn">Delete</button>
         <span id="status" class="status">Select .docx files or drag them here.</span>
       </div>
@@ -498,7 +497,6 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           <button id="htriSelectAllBtn">All</button>
           <button id="htriSelectGpheBtn">GPHE</button>
           <button id="htriSelectBpheBtn">BPHE</button>
-          <button id="htriSelectNoneBtn">None</button>
           <button id="htriDeleteSelectedBtn">Delete</button>
           <span id="htriStatus" class="status">Select HTRI .xls/.xlsx/.xlsm source files.</span>
         </div>
@@ -4165,28 +4163,31 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       document.getElementById("mpx2TabBtn").classList.toggle("active", tab === "mpx2");
       document.getElementById("htriTabBtn").classList.toggle("active", tab === "htri");
     }
+
+    function toggleFileSelectionByKind(list, kind) {
+      const targets = kind ? list.filter(file => file.kind === kind) : list;
+      const shouldSelect = targets.some(file => !file.selected);
+      targets.forEach(file => file.selected = shouldSelect);
+    }
+
     document.getElementById("uploadInput").addEventListener("change", event => {
       loadFiles(event.target.files);
       event.target.value = "";
     });
     document.getElementById("selectAllBtn").addEventListener("click", () => {
-      files.forEach(file => file.selected = true);
+      toggleFileSelectionByKind(files, "");
       renderFiles();
       refreshFieldSelect();
-    });
-    document.getElementById("selectNoneBtn").addEventListener("click", () => {
-      files.forEach(file => file.selected = false);
-      renderFiles();
-      refreshFieldSelect();
+      preview();
     });
     document.getElementById("selectGpheBtn").addEventListener("click", () => {
-      files.forEach(file => file.selected = file.kind === "GPHE");
+      toggleFileSelectionByKind(files, "GPHE");
       renderFiles();
       refreshFieldSelect();
       preview();
     });
     document.getElementById("selectBpheBtn").addEventListener("click", () => {
-      files.forEach(file => file.selected = file.kind === "BPHE");
+      toggleFileSelectionByKind(files, "BPHE");
       renderFiles();
       refreshFieldSelect();
       preview();
@@ -4208,23 +4209,19 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       event.target.value = "";
     });
     document.getElementById("htriSelectAllBtn").addEventListener("click", () => {
-      htriFiles.forEach(file => file.selected = true);
+      toggleFileSelectionByKind(htriFiles, "");
       renderHtriFiles();
       refreshHtriFieldSelect();
-    });
-    document.getElementById("htriSelectNoneBtn").addEventListener("click", () => {
-      htriFiles.forEach(file => file.selected = false);
-      renderHtriFiles();
-      refreshHtriFieldSelect();
+      renderHtriPreview();
     });
     document.getElementById("htriSelectGpheBtn").addEventListener("click", () => {
-      htriFiles.forEach(file => file.selected = file.kind === "GPHE");
+      toggleFileSelectionByKind(htriFiles, "GPHE");
       renderHtriFiles();
       refreshHtriFieldSelect();
       renderHtriPreview();
     });
     document.getElementById("htriSelectBpheBtn").addEventListener("click", () => {
-      htriFiles.forEach(file => file.selected = file.kind === "BPHE");
+      toggleFileSelectionByKind(htriFiles, "BPHE");
       renderHtriFiles();
       refreshHtriFieldSelect();
       renderHtriPreview();
