@@ -1456,6 +1456,27 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       `;
     }
 
+    function defaultClearingTextarea(key, value) {
+      return `<textarea data-key="${escapeHtml(key)}" data-clear-default="${escapeHtml(value)}">${escapeHtml(value)}</textarea>`;
+    }
+
+    function defaultClearInputRow(label, key, value) {
+      return `
+        <div class="field-row">
+          <label for="${key}">${label}</label>
+          ${defaultClearingTextarea(key, value)}
+        </div>
+      `;
+    }
+
+    function setupClearDefaultInputs(container) {
+      container.querySelectorAll("[data-clear-default]").forEach(input => {
+        input.addEventListener("focus", () => {
+          if (input.value === input.dataset.clearDefault) input.value = "";
+        }, { once: true });
+      });
+    }
+
     function selectRow(label, key, values, selectedValue = "") {
       return `
         <div class="field-row">
@@ -1553,11 +1574,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           <div class="duty-head">Value</div>
           <div class="duty-head">Unit</div>
           <div class="duty-label">Design Temperature</div>
-          <div class="duty-cell"><textarea data-key="designTemperatureValue"></textarea></div>
-          <div class="duty-cell"><select data-key="designTemperatureUnit"><option value=""></option><option value="°C">°C</option></select></div>
+          <div class="duty-cell">${defaultClearingTextarea("designTemperatureValue", "100")}</div>
+          <div class="duty-cell"><select data-key="designTemperatureUnit"><option value=""></option><option value="°C" selected>°C</option></select></div>
           <div class="duty-label">Design / Test Pressure</div>
-          <div class="duty-cell"><textarea data-key="designPressureValue" placeholder="10.0 / 13.0"></textarea></div>
-          <div class="duty-cell"><select data-key="designPressureUnit">${pressureUnits.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("")}</select></div>
+          <div class="duty-cell">${defaultClearingTextarea("designPressureValue", "10 / 13")}</div>
+          <div class="duty-cell"><select data-key="designPressureUnit">${pressureUnits.map(value => `<option value="${escapeHtml(value)}"${value === "barG" ? " selected" : ""}>${escapeHtml(value)}</option>`).join("")}</select></div>
         </div>
       `;
     }
@@ -1651,6 +1672,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       }
       if (isConnectionField(field)) setupConnectionForm();
       if (field === "Unit Conversion") setupUnitConversionForm();
+      setupClearDefaultInputs(dynamicForm);
     }
 
     function updateSelectOptions(select, values, fallback) {
@@ -1779,10 +1801,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         return html;
       }
       if (field === "Design / Test Pressure") {
-        return inputRow("Design / Test", "value", "6.0 / 7.5") + inputRow("Unit", "unit", "bar");
+        return defaultClearInputRow("Design / Test", "value", "10 / 13") + inputRow("Unit", "unit", "barG");
       }
       if (field === "Design Temperature") {
-        return inputRow("Value", "value", "130") + inputRow("Unit", "unit", "°C");
+        return defaultClearInputRow("Value", "value", "100") + inputRow("Unit", "unit", "°C");
       }
       if (["Customer", "Project Name", "Contact", "Service", "Item No.", "Datasheet No.", "Date", "Designed by"].includes(field)) {
         const today = new Date().toISOString().slice(0, 10);
@@ -3470,11 +3492,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           <div class="duty-head">Value</div>
           <div class="duty-head">Unit</div>
           <div class="duty-label">Design Temperature</div>
-          <div class="duty-cell"><textarea data-key="htriDesignTemperatureValue" placeholder="0 / 100"></textarea></div>
-          <div class="duty-cell"><select data-key="htriDesignTemperatureUnit"><option value=""></option><option value="Deg C">Deg C</option></select></div>
+          <div class="duty-cell">${defaultClearingTextarea("htriDesignTemperatureValue", "100")}</div>
+          <div class="duty-cell"><select data-key="htriDesignTemperatureUnit"><option value=""></option><option value="Deg C" selected>Deg C</option></select></div>
           <div class="duty-label">Design / Test Pressure</div>
-          <div class="duty-cell"><textarea data-key="htriDesignPressureValue" placeholder="10 / 13"></textarea></div>
-          <div class="duty-cell"><select data-key="htriDesignPressureUnit">${pressureUnits.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("")}</select></div>
+          <div class="duty-cell">${defaultClearingTextarea("htriDesignPressureValue", "10 / 13")}</div>
+          <div class="duty-cell"><select data-key="htriDesignPressureUnit">${pressureUnits.map(value => `<option value="${escapeHtml(value)}"${value === "bar_G" ? " selected" : ""}>${escapeHtml(value)}</option>`).join("")}</select></div>
         </div>
       `;
     }
@@ -3513,9 +3535,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       } else if (["Operating Pressure", "Pressure drop"].includes(field)) {
         htriDynamicForm.innerHTML = html + inputRow("Hot Side", "hot") + inputRow("Cold Side", "cold") + inputRow("Unit", "unit");
       } else if (field === "Design Temperature") {
-        htriDynamicForm.innerHTML = inputRow("Min / Max", "value", "0 / 100") + inputRow("Unit", "unit", "Deg C");
+        htriDynamicForm.innerHTML = defaultClearInputRow("Value", "value", "100") + inputRow("Unit", "unit", "Deg C");
       } else if (field === "Design / Test Pressure") {
-        htriDynamicForm.innerHTML = html + inputRow("Design / Test", "value", "10 / 13") + inputRow("Unit", "unit", "barG");
+        htriDynamicForm.innerHTML = html + defaultClearInputRow("Design / Test", "value", "10 / 13") + inputRow("Unit", "unit", "barG");
       } else if (field === "Heat capacity") {
         htriDynamicForm.innerHTML = html + inputRow("Value", "value") + inputRow("Unit", "unit", "kcal/hr");
       } else {
@@ -3528,6 +3550,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       }
       if (field === "Material") setupConnectionForm(htriDynamicForm);
       if (field === "Unit Conversion") setupHtriUnitConversionForm();
+      setupClearDefaultInputs(htriDynamicForm);
     }
 
     function setupHtriUnitConversionForm() {
