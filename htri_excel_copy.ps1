@@ -155,47 +155,47 @@ function Apply-HtriValues($target, $source, $item, [string]$kind) {
 
   Put $ds 'C11' (T $api 'L14')
   Put $ds 'G11' (T $api 'V14')
-  Put $ds 'E12' (First-NumberText @((T $fin 'I30'), (T $out 'S26'), (T $api 'L40')))
+  Put $ds 'E12' (First-NumberText @((T $fin 'I30'), (T $out 'S26'), (T $out 'T26'), (T $api 'L40')))
   Put $ds 'D12' ''
   Put $ds 'H12' ''
   Put $ds 'J12' '(kcal/hr)'
   Put $ds 'C13' (T $api 'L16')
   Put $ds 'G13' (T $api 'V16')
   Put $ds 'J13' ('(' + (T $api 'I16') + ')')
-  Put $ds 'C14' (First-NumberText @((T $out 'G14'), (T $fin 'I14'), (T $api 'M22')))
-  Put $ds 'C15' (First-NumberText @((T $out 'M14'), (T $fin 'M14'), (T $api 'R22')))
-  Put $ds 'G14' (First-NumberText @((T $out 'Q14'), (T $fin 'O14'), (T $api 'W22')))
-  Put $ds 'G15' (First-NumberText @((T $out 'S14'), (T $fin 'Q14'), (T $api 'AB22')))
+  Put $ds 'C14' (First-NumberText @((T $out 'G14'), (T $out 'H14'), (T $fin 'I14'), (T $fin 'J14'), (T $api 'M22')))
+  Put $ds 'C15' (First-NumberText @((T $out 'M14'), (T $out 'N14'), (T $fin 'M14'), (T $fin 'N14'), (T $api 'R22')))
+  Put $ds 'G14' (First-NumberText @((T $out 'Q14'), (T $out 'R14'), (T $fin 'O14'), (T $fin 'P14'), (T $api 'W22')))
+  Put $ds 'G15' (First-NumberText @((T $out 'S14'), (T $out 'T14'), (T $fin 'Q14'), (T $fin 'R14'), (T $api 'AB22')))
   Put $ds 'J14' ('(' + (T $api 'I22') + ')')
   Put $ds 'J15' ('(' + (T $api 'I22') + ')')
 
-  $vapHotIn = First-Useful @((T $out 'G15'), (T $fin 'I13'))
-  $vapHotOut = First-Useful @((T $out 'M15'), (T $fin 'M13'))
-  $vapColdIn = First-Useful @((T $out 'Q15'), (T $fin 'O13'))
-  $vapColdOut = First-Useful @((T $out 'S15'), (T $fin 'Q13'))
+  $vapHotIn = First-NumberText @((T $out 'G15'), (T $out 'H15'), (T $fin 'I13'), (T $fin 'J13'))
+  $vapHotOut = First-NumberText @((T $out 'M15'), (T $out 'N15'), (T $fin 'M13'), (T $fin 'N13'))
+  $vapColdIn = First-NumberText @((T $out 'Q15'), (T $out 'R15'), (T $fin 'O13'), (T $fin 'P13'))
+  $vapColdOut = First-NumberText @((T $out 'S15'), (T $out 'T15'), (T $fin 'Q13'), (T $fin 'R13'))
   Put $ds (Addr $isGphe 'C17' 'C16') $vapHotIn
   Put $ds (Addr $isGphe 'E17' 'E16') $vapHotOut
   Put $ds (Addr $isGphe 'G17' 'G16') $vapColdIn
   Put $ds (Addr $isGphe 'I17' 'I16') $vapColdOut
 
   if ($isGphe) {
-    Put $ds 'C16' (First-NumberText @((T $out 'G18'), (T $fin 'I18'), (T $api 'M34')))
-    Put $ds 'G16' (First-NumberText @((T $out 'Q18'), (T $fin 'O18'), (T $api 'W34')))
+    Put $ds 'C16' (First-NumberText @((T $out 'G18'), (T $out 'H18'), (T $fin 'I18'), (T $fin 'J18'), (T $api 'M34')))
+    Put $ds 'G16' (First-NumberText @((T $out 'Q18'), (T $out 'R18'), (T $fin 'O18'), (T $fin 'P18'), (T $api 'W34')))
     Put $ds 'J16' ('(' + (T $api 'I34') + ')')
-    Put $ds 'C19' (First-NumberText @((T $out 'G17'), (T $fin 'I17'), (T $api 'M33')))
-    Put $ds 'G19' (First-NumberText @((T $out 'Q17'), (T $fin 'O17'), (T $api 'W33')))
+    Put $ds 'C19' (First-NumberText @((T $out 'G17'), (T $out 'H17'), (T $fin 'I17'), (T $fin 'J17'), (T $api 'M33')))
+    Put $ds 'G19' (First-NumberText @((T $out 'Q17'), (T $out 'R17'), (T $fin 'O17'), (T $fin 'P17'), (T $api 'W33')))
     Put $ds 'J19' ('(' + (T $api 'I33') + ')')
   } else {
-    Put $ds 'C17' (First-NumberText @((T $out 'G18'), (T $fin 'I18'), (T $api 'R34')))
-    Put $ds 'G17' (First-NumberText @((T $out 'Q18'), (T $fin 'O18'), (T $api 'AB34')))
+    Put $ds 'C17' (First-NumberText @((T $out 'G18'), (T $out 'H18'), (T $fin 'I18'), (T $fin 'J18'), (T $api 'R34')))
+    Put $ds 'G17' (First-NumberText @((T $out 'Q18'), (T $out 'R18'), (T $fin 'O18'), (T $fin 'P18'), (T $api 'AB34')))
     Put $ds 'J17' ('(' + (T $api 'I34') + ')')
-    Put $ds 'C18' (First-NumberText @((T $out 'G17'), (T $fin 'I17'), (T $api 'M33')))
-    Put $ds 'G18' (First-NumberText @((T $out 'Q17'), (T $fin 'O17'), (T $api 'W33')))
+    Put $ds 'C18' (First-NumberText @((T $out 'G17'), (T $out 'H17'), (T $fin 'I17'), (T $fin 'J17'), (T $api 'M33')))
+    Put $ds 'G18' (First-NumberText @((T $out 'Q17'), (T $out 'R17'), (T $fin 'O17'), (T $fin 'P17'), (T $api 'W33')))
     Put $ds 'J18' ('(' + (T $api 'I33') + ')')
   }
 
-  $refHot = First-NumberText @((T $fin 'I15'), (T $out 'G16'), (T $api 'M22'))
-  $refCold = First-NumberText @((T $fin 'O15'), (T $out 'Q16'), (T $api 'W22'))
+  $refHot = First-NumberText @((T $fin 'I15'), (T $fin 'J15'), (T $out 'G16'), (T $out 'H16'), (T $api 'M22'))
+  $refCold = First-NumberText @((T $fin 'O15'), (T $fin 'P15'), (T $out 'Q16'), (T $out 'R16'), (T $api 'W22'))
   Put $ds (Addr $isGphe 'C23' 'C22') $refHot
   Put $ds (Addr $isGphe 'G23' 'G22') $refCold
   Put $ds (Addr $isGphe 'J23' 'J22') (T $api 'I22')
@@ -225,10 +225,10 @@ function Apply-HtriValues($target, $source, $item, [string]$kind) {
   Put $ds (Addr $isGphe 'G33' 'G30') (First-NumberText @((T $api 'F11'), (T $out 'S27')))
   Put $ds (Addr $isGphe 'C34' 'C31') $plates
   Put $ds (Addr $isGphe 'G34' 'G31') $plates
-  Put $ds (Addr $isGphe 'C36' 'C32') (First-NumberText @((T $fin 'I31'), (T $out 'G28'), (T $api 'M41')))
-  Put $ds (Addr $isGphe 'C37' 'C33') (First-NumberText @((T $out 'S24'), (T $api 'M42')))
-  Put $ds (Addr $isGphe 'G37' 'G33') (First-NumberText @((T $out 'S25'), (T $api 'V42'), (T $fin 'I29')))
-  Put $ds (Addr $isGphe 'C38' 'C34') (First-NumberText @((T $out 'S28'), (T $api 'M43')))
+  Put $ds (Addr $isGphe 'C36' 'C32') (First-NumberText @((T $fin 'I31'), (T $fin 'J31'), (T $out 'G28'), (T $out 'H28'), (T $api 'M41')))
+  Put $ds (Addr $isGphe 'C37' 'C33') (First-NumberText @((T $out 'S24'), (T $out 'T24'), (T $api 'M42')))
+  Put $ds (Addr $isGphe 'G37' 'G33') (First-NumberText @((T $out 'S25'), (T $out 'T25'), (T $api 'V42'), (T $fin 'I29'), (T $fin 'J29')))
+  Put $ds (Addr $isGphe 'C38' 'C34') (First-NumberText @((T $out 'S28'), (T $out 'T28'), (T $api 'M43')))
   Put $ds (Addr $isGphe 'C39' 'C35') (First-NonBlank @((T $api 'L44'), 'AISI 316'))
 
   $parallel = First-Useful @((T $api 'N10'), '1')
@@ -237,8 +237,8 @@ function Apply-HtriValues($target, $source, $item, [string]$kind) {
   $sNum = Num $series
   $totalUnits = if ($null -ne $pNum -and $null -ne $sNum) { [int]($pNum * $sNum) } else { '1' }
 
-  $hotPressure = First-NumberText @((T $out 'G17'), (T $fin 'I17'), (T $api 'M33'))
-  $coldPressure = First-NumberText @((T $out 'Q17'), (T $fin 'O17'), (T $api 'W33'))
+  $hotPressure = First-NumberText @((T $out 'G17'), (T $out 'H17'), (T $fin 'I17'), (T $fin 'J17'), (T $api 'M33'))
+  $coldPressure = First-NumberText @((T $out 'Q17'), (T $out 'R17'), (T $fin 'O17'), (T $fin 'P17'), (T $api 'W33'))
   $pressureBase = Max-Number @($hotPressure, $coldPressure) 10.0
   if ($pressureBase -le 10.0) {
     $designPressure = 10
@@ -246,8 +246,8 @@ function Apply-HtriValues($target, $source, $item, [string]$kind) {
     $designPressure = [Math]::Ceiling([Math]::Max($pressureBase + 2.0, $pressureBase * 1.1))
   }
   $testPressure = [Math]::Round($designPressure * 1.3, 1)
-  $minTemp = [Math]::Floor((Min-Number @((T $out 'G14'), (T $out 'M14'), (T $out 'Q14'), (T $out 'S14'), (T $fin 'I14'), (T $fin 'M14'), (T $fin 'O14'), (T $fin 'Q14'), (T $api 'M22'), (T $api 'R22'), (T $api 'W22'), (T $api 'AB22')) 0.0))
-  $maxTemp = [Math]::Ceiling((Max-Number @((T $out 'G14'), (T $out 'M14'), (T $out 'Q14'), (T $out 'S14'), (T $fin 'I14'), (T $fin 'M14'), (T $fin 'O14'), (T $fin 'Q14'), (T $api 'M22'), (T $api 'R22'), (T $api 'W22'), (T $api 'AB22')) 100.0))
+  $minTemp = [Math]::Floor((Min-Number @((T $out 'G14'), (T $out 'H14'), (T $out 'M14'), (T $out 'N14'), (T $out 'Q14'), (T $out 'R14'), (T $out 'S14'), (T $out 'T14'), (T $fin 'I14'), (T $fin 'J14'), (T $fin 'M14'), (T $fin 'N14'), (T $fin 'O14'), (T $fin 'P14'), (T $fin 'Q14'), (T $fin 'R14'), (T $api 'M22'), (T $api 'R22'), (T $api 'W22'), (T $api 'AB22')) 0.0))
+  $maxTemp = [Math]::Ceiling((Max-Number @((T $out 'G14'), (T $out 'H14'), (T $out 'M14'), (T $out 'N14'), (T $out 'Q14'), (T $out 'R14'), (T $out 'S14'), (T $out 'T14'), (T $fin 'I14'), (T $fin 'J14'), (T $fin 'M14'), (T $fin 'N14'), (T $fin 'O14'), (T $fin 'P14'), (T $fin 'Q14'), (T $fin 'R14'), (T $api 'M22'), (T $api 'R22'), (T $api 'W22'), (T $api 'AB22')) 100.0))
 
   if ($isGphe) {
     Put $ds 'C31' $parallel
