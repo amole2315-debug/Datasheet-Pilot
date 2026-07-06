@@ -1302,7 +1302,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       async scanSummary() {
         const text = await this.allText();
         const match = text.match(/MG PHE Result\s*:\s*([^\n\r]+?)(?:Series|Section|1\.)/);
-        return match ? normalize(match[1]) : "";
+        return match ? normalizeModelSpacing(match[1]) : "";
       }
 
       async scanClassification() {
@@ -1815,6 +1815,12 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if (spacedBphe) return `M${spacedBphe[1]}${spacedBphe[2]}${spacedBphe[3]}`.toUpperCase();
       const match = value.match(/\b(MX\d+[A-Z]+|M\d+[A-Z]+|M[CS]\d+[A-Z]*|MA\d+[A-Z]*|ZS\d+|KC\d+)\b/i);
       return match ? match[1].toUpperCase() : "";
+    }
+
+    function normalizeModelSpacing(text) {
+      return normalize(text).replace(/\bM\s+([CSA])\s+(\d+)\s*([A-Z]*)\b/gi, (_, series, number, suffix) => {
+        return `M${series}${number}${suffix || ""}`.toUpperCase();
+      });
     }
 
     function classifyModel(model) {
