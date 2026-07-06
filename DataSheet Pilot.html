@@ -788,6 +788,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     const CONNECTION_INCH_SIZES = ["1\"", "1-1/4\"", "1-1/2\"", "2\"", "2-1/2\"", "3\"", "4\"", "5\"", "6\"", "8\"", "10\"", "12\""];
     const CONNECTION_TYPES = ["UnLined", "MetalLined", "RubberLined", "SORF", "SOFF", "WNRF", "LapJoint"];
     const CONNECTION_BASE_MATERIALS = ["304", "316L", "316", "Titanium", "C-276"];
+    const CONNECTION_PLATE_THICKNESSES = ["", "0.5t", "0.6t", "0.7t"];
     const CONNECTION_FLANGE_MATERIALS = ["Auto", "-", "C.S.", "STS 304", "STS 316L", "STS 316", "A182 F304", "A182 F316L", "A182 F316"];
     const CONNECTION_NOZZLE_MATERIALS = ["Auto", "-", "SPPS38", "STS 304", "STS 316L", "STS 316", "A312 TP304", "A312 TP316L", "A312 TP316", "Titanium"];
     const CONNECTION_LINING_MATERIALS = ["Auto", "-", "STS 304", "STS 316L", "STS 316", "A240-304", "A240-316L", "A240-316", "Titanium"];
@@ -1433,6 +1434,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         ${scopeControl}
         <div data-product-section="common">
           ${selectRow("Plate material", "connectionPlateMaterial", CONNECTION_BASE_MATERIALS, "316L")}
+          ${selectRow("Plate thickness", "plateThickness", CONNECTION_PLATE_THICKNESSES, "0.6t")}
         </div>
         <div data-product-section="BPHE">
           ${selectRow("Soldering Material", "solderingMaterial", ["", "SUS", "Copper"])}
@@ -1978,12 +1980,15 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         const productScope = task.productScope || "GPHE";
         const standard = connectionStandardPart(task.standard || "KS");
         const baseMaterial = task.connectionPlateMaterial || "316L";
+        const plateMaterial = plateMaterialForStandard(baseMaterial, standard);
+        const plateWithThickness = [plateMaterial, task.plateThickness || ""].filter(Boolean).join(" ");
+        const frameMaterial = frameMaterialForStandard(task.frameMaterial || "C.S", standard);
         let changed = false;
-        if (this.setSingleRow(doc, "Plate material", plateMaterialForStandard(baseMaterial, standard), "")) changed = true;
+        if (this.setLabelNextAny(doc, "Plate material", plateWithThickness)) changed = true;
         if (productScope === "BPHE") {
           if (task.solderingMaterial && this.isBpheItem()) {
             const modelPrefix = solderingModelPrefix(task.solderingMaterial);
-            if (this.setSingleRow(doc, "Soldering Material", task.solderingMaterial, "")) changed = true;
+            if (this.setLabelNextAny(doc, "Soldering Material", task.solderingMaterial)) changed = true;
             if (modelPrefix && this.replaceBpModelPrefix(doc, modelPrefix)) changed = true;
           }
           return changed;
@@ -2016,8 +2021,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         if (this.setConnectionRow(doc, "Flange Material", materialValues("Flange"))) changed = true;
         if (this.setConnectionRow(doc, "Nozzle Material", materialValues("Nozzle"))) changed = true;
         if (this.setConnectionRow(doc, "Lining Material", materialValues("Lining"))) changed = true;
-        if (task.gasketMaterial && this.setSingleRow(doc, "Gasket Material", task.gasketMaterial, "")) changed = true;
-        if (this.setSingleRow(doc, "Frame material", frameMaterialForStandard(task.frameMaterial || "C.S", standard), "")) changed = true;
+        if (task.gasketMaterial && this.setLabelNextAny(doc, "Gasket Material", task.gasketMaterial)) changed = true;
+        if (this.setLabelNextAny(doc, "Frame material", frameMaterial)) changed = true;
+        if (this.updateFrameTypeMaterial(doc, frameMaterial)) changed = true;
         return changed;
       }
 
@@ -2228,7 +2234,6 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
                 changed = true;
               }
             });
-            return changed;
           }
         }
         return changed;
@@ -2253,7 +2258,46 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
                 changed = true;
               }
             }
-            return changed;
+          }
+        }
+        return changed;
+      }
+
+      setLabelNextAny(doc, label, value) {
+        if (!value) return false;
+        let changed = false;
+        for (const row of this.rows(doc)) {
+          const cells = this.cells(row);
+          for (let i = 0; i < cells.length - 1; i += 1) {
+            if (!rowLabelMatches(this.cellText(cells[i]), label)) continue;
+            const cell = cells[i + 1];
+            const old = this.cellText(cell);
+            if (old !== value) {
+              this.setCellText(cell, value);
+              this.changes.push([label, old, value]);
+              changed = true;
+            }
+          }
+        }
+        return changed;
+      }
+
+      updateFrameTypeMaterial(doc, frameMaterial) {
+        let changed = false;
+        for (const row of this.rows(doc)) {
+          const cells = this.cells(row);
+          for (let i = 0; i < cells.length - 1; i += 1) {
+            if (!rowLabelMatches(this.cellText(cells[i]), "Frame type / material")) continue;
+            const cell = cells[i + 1];
+            const old = this.cellText(cell);
+            const next = frameMaterial === "SA-516 Gr.70"
+              ? old.replace(/C\.?S\.?/gi, "SA-516 Gr.70")
+              : old.replace(/SA-516\s+Gr\.70/gi, "C.S.");
+            if (old !== next) {
+              this.setCellText(cell, next);
+              this.changes.push(["Frame type / material", old, next]);
+              changed = true;
+            }
           }
         }
         return changed;
