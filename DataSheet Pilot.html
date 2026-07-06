@@ -170,6 +170,18 @@
       resize: vertical;
       line-height: 1.35;
     }
+    .connection-switch {
+      display: flex;
+      gap: 6px;
+      margin: 2px 0 10px 128px;
+      flex-wrap: wrap;
+    }
+    .connection-pane {
+      display: none;
+    }
+    .connection-pane.active {
+      display: block;
+    }
     .check-row {
       display: flex;
       align-items: center;
@@ -1246,6 +1258,18 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       `;
     }
 
+    function connectionScopeButtons(group, items) {
+      return `
+        <div class="connection-switch" data-connection-group="${escapeHtml(group)}">
+          ${items.map((item, index) => `<button type="button" data-connection-target="${escapeHtml(item.key)}"${index === 0 ? " class=\"active\"" : ""}>${escapeHtml(item.label)}</button>`).join("")}
+        </div>
+      `;
+    }
+
+    function connectionPane(group, key, rows, active = false) {
+      return `<div class="connection-pane${active ? " active" : ""}" data-connection-pane-group="${escapeHtml(group)}" data-connection-pane="${escapeHtml(key)}">${rows}</div>`;
+    }
+
     function connectionFormHtml() {
       const positionRows = [
         ["Hot In Position", "hotInPosition", "F2"],
@@ -1263,14 +1287,21 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           ${scopedConnectionRows("all", "", standard)}
         </div>
         <div data-connection-scope="Hot / Cold" style="display:none">
-          ${scopedConnectionRows("hot", "Hot", standard)}
-          ${scopedConnectionRows("cold", "Cold", standard)}
+          ${connectionScopeButtons("hotCold", [{ key: "hot", label: "Hot" }, { key: "cold", label: "Cold" }])}
+          ${connectionPane("hotCold", "hot", scopedConnectionRows("hot", "Hot", standard), true)}
+          ${connectionPane("hotCold", "cold", scopedConnectionRows("cold", "Cold", standard))}
         </div>
         <div data-connection-scope="Individual" style="display:none">
-          ${scopedConnectionRows("hotIn", "Hot In", standard)}
-          ${scopedConnectionRows("hotOut", "Hot Out", standard)}
-          ${scopedConnectionRows("coldIn", "Cold In", standard)}
-          ${scopedConnectionRows("coldOut", "Cold Out", standard)}
+          ${connectionScopeButtons("individual", [
+            { key: "hotIn", label: "Hot In" },
+            { key: "hotOut", label: "Hot Out" },
+            { key: "coldIn", label: "Cold In" },
+            { key: "coldOut", label: "Cold Out" }
+          ])}
+          ${connectionPane("individual", "hotIn", scopedConnectionRows("hotIn", "Hot In", standard), true)}
+          ${connectionPane("individual", "hotOut", scopedConnectionRows("hotOut", "Hot Out", standard))}
+          ${connectionPane("individual", "coldIn", scopedConnectionRows("coldIn", "Cold In", standard))}
+          ${connectionPane("individual", "coldOut", scopedConnectionRows("coldOut", "Cold Out", standard))}
         </div>
         ${positionRows}
       `;
@@ -1310,6 +1341,14 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     function setupConnectionForm() {
       const standardSelect = dynamicForm.querySelector("[data-key='standard']");
       const scopeSelect = dynamicForm.querySelector("[data-key='connectionScope']");
+      const activateConnectionPane = (group, target) => {
+        dynamicForm.querySelectorAll(`[data-connection-group='${group}'] [data-connection-target]`).forEach(button => {
+          button.classList.toggle("active", button.dataset.connectionTarget === target);
+        });
+        dynamicForm.querySelectorAll(`[data-connection-pane-group='${group}']`).forEach(pane => {
+          pane.classList.toggle("active", pane.dataset.connectionPane === target);
+        });
+      };
       const refresh = () => {
         const standard = standardSelect ? standardSelect.value : "KS";
         dynamicForm.querySelectorAll("[data-key$='Rating']").forEach(select => {
@@ -1322,7 +1361,15 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         dynamicForm.querySelectorAll("[data-connection-scope]").forEach(section => {
           section.style.display = section.dataset.connectionScope === scope ? "" : "none";
         });
+        if (scope === "Hot / Cold") activateConnectionPane("hotCold", "hot");
+        if (scope === "Individual") activateConnectionPane("individual", "hotIn");
       };
+      dynamicForm.querySelectorAll("[data-connection-target]").forEach(button => {
+        button.addEventListener("click", () => {
+          const group = button.closest("[data-connection-group]").dataset.connectionGroup;
+          activateConnectionPane(group, button.dataset.connectionTarget);
+        });
+      });
       if (standardSelect) standardSelect.addEventListener("change", refresh);
       if (scopeSelect) scopeSelect.addEventListener("change", refresh);
       refresh();
