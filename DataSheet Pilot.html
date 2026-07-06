@@ -85,9 +85,14 @@
       font: inherit;
     }
     button, .file-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       padding: 0 12px;
       cursor: pointer;
       user-select: none;
+      line-height: 1;
+      vertical-align: middle;
     }
     button.primary {
       background: var(--accent);
@@ -407,6 +412,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           <input id="uploadInput" type="file" accept=".docx" multiple>
         </label>
         <button id="selectAllBtn">All</button>
+        <button id="selectGpheBtn">GPHE</button>
+        <button id="selectBpheBtn">BPHE</button>
         <button id="selectNoneBtn">None</button>
         <button id="deleteSelectedBtn">Delete</button>
         <span id="status" class="status">Select .docx files or drag them here.</span>
@@ -489,6 +496,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
             <input id="htriGpheTemplateInput" type="file" accept=".xlsm,.xlsx">
           </label>
           <button id="htriSelectAllBtn">All</button>
+          <button id="htriSelectGpheBtn">GPHE</button>
+          <button id="htriSelectBpheBtn">BPHE</button>
           <button id="htriSelectNoneBtn">None</button>
           <button id="htriDeleteSelectedBtn">Delete</button>
           <span id="htriStatus" class="status">Select HTRI .xls/.xlsx/.xlsm source files.</span>
@@ -4170,6 +4179,18 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       renderFiles();
       refreshFieldSelect();
     });
+    document.getElementById("selectGpheBtn").addEventListener("click", () => {
+      files.forEach(file => file.selected = file.kind === "GPHE");
+      renderFiles();
+      refreshFieldSelect();
+      preview();
+    });
+    document.getElementById("selectBpheBtn").addEventListener("click", () => {
+      files.forEach(file => file.selected = file.kind === "BPHE");
+      renderFiles();
+      refreshFieldSelect();
+      preview();
+    });
     document.getElementById("deleteSelectedBtn").addEventListener("click", deleteSelectedFiles);
     document.getElementById("applyTaskBtn").addEventListener("click", applyTaskFromForm);
     document.getElementById("editTaskBtn").addEventListener("click", editTask);
@@ -4195,6 +4216,18 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       htriFiles.forEach(file => file.selected = false);
       renderHtriFiles();
       refreshHtriFieldSelect();
+    });
+    document.getElementById("htriSelectGpheBtn").addEventListener("click", () => {
+      htriFiles.forEach(file => file.selected = file.kind === "GPHE");
+      renderHtriFiles();
+      refreshHtriFieldSelect();
+      renderHtriPreview();
+    });
+    document.getElementById("htriSelectBpheBtn").addEventListener("click", () => {
+      htriFiles.forEach(file => file.selected = file.kind === "BPHE");
+      renderHtriFiles();
+      refreshHtriFieldSelect();
+      renderHtriPreview();
     });
     document.getElementById("htriDeleteSelectedBtn").addEventListener("click", deleteSelectedHtriFiles);
     document.getElementById("htriApplyTaskBtn").addEventListener("click", applyHtriTaskFromForm);
