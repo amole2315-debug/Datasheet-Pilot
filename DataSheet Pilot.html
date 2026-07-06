@@ -1142,7 +1142,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       });
       const liningValues = materialValues("Lining");
       const displayTypes = types.map((type, index) => connectionDisplayType(type, liningValues[index], studFlags[index]));
-      const connectionTexts = columns.map((column, index) => `${ratings[index]} ${sizes[index]} ${displayTypes[index]}`.replace(/\s+/g, " ").trim());
+      const connectionTexts = columns.map((column, index) => `${standard} ${ratings[index]} ${sizes[index]} ${displayTypes[index]}`.replace(/\s+/g, " ").trim());
       const sideSummary = (inlet, outlet) => inlet === outlet ? inlet : `In: ${inlet} / Out: ${outlet}`;
       return {
         standard,
@@ -3070,10 +3070,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         setSheetValue(ws, "C42", inlet.join(" "));
         setSheetValue(ws, "G42", outlet.join(" "));
         setSheetValue(ws, "C43", summary["Frame Material"] || "C.S");
-        setSheetValue(ws, "D45", designT[0]);
-        setSheetValue(ws, "H45", designT[1] || designT[0]);
-        setSheetValue(ws, "E46", designP[0]);
-        setSheetValue(ws, "G46", designP[1] || designP[0]);
+        setSheetValue(ws, "D44", designT[0]);
+        setSheetValue(ws, "H44", designT[1] || designT[0]);
+        setSheetValue(ws, "E45", designP[0]);
+        setSheetValue(ws, "G45", designP[1] || designP[0]);
       } else {
         setSheetValue(ws, "C36", summary["Soldering Material"]);
         setSheetValue(ws, "C37", passes[0] || "");
@@ -3298,6 +3298,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         </div>
         <div data-product-section="GPHE">
           ${selectRow("Connection material", "htriConnectionMaterial", CONNECTION_BASE_MATERIALS, "316L")}
+          ${selectRow("Frame material", "htriFrameMaterial", ["C.S", "SS275", "SA-516 Gr.70"], "C.S")}
           ${selectRow("Standard", "standard", CONNECTION_STANDARDS, standard)}
           ${selectRow("Apply range", "connectionScope", ["All same", "Hot / Cold", "Individual"])}
           <div data-connection-scope="All same">
@@ -3667,7 +3668,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           const baseMaterial = task.htriConnectionMaterial || "316L";
           const connection = connectionTaskDetails(task);
           putOverride(overrides, "Plate Material", plateMaterialForStandard(baseMaterial, standard));
-          putOverride(overrides, "Frame Material", frameMaterialForStandard("C.S", standard));
+          putOverride(overrides, "Frame Material", frameMaterialForStandard(task.htriFrameMaterial || "C.S", standard));
           putOverride(overrides, "Connection Hot", connection.hotConnection);
           putOverride(overrides, "Connection Cold", connection.coldConnection);
           putOverride(overrides, "Inlet Connection", [connection.hotConnection]);

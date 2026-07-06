@@ -16,6 +16,11 @@ function writeHtriExcelCopyScript(tempRoot) {
     if (patched === source) throw new Error(`Failed to patch HTRI ${label} script.`);
     return patched;
   };
+  const patchAll = (source, pattern, replacement, label) => {
+    if (!pattern.test(source)) throw new Error(`Failed to patch HTRI ${label} script.`);
+    pattern.lastIndex = 0;
+    return source.replace(pattern, replacement);
+  };
   const connectionBlock = "  if ($isGphe) {\r\n    Put $ds 'C40' (Override-Value $item 'Gasket Material' (T $ds 'C40'))\r\n    $plateMaterial = Override-Value $item 'Plate Material' ''\r\n    $frameMaterial = Override-Value $item 'Frame Material' 'C.S'\r\n    if (-not [string]::IsNullOrWhiteSpace([string]$plateMaterial)) { Put $ds 'C39' $plateMaterial }\r\n    Put $ds 'C43' $frameMaterial\r\n    $connectionHot = Override-Value $item 'Connection Hot' ''\r\n    $connectionCold = Override-Value $item 'Connection Cold' ''\r\n    if (-not [string]::IsNullOrWhiteSpace([string]$connectionHot)) { Put $ds 'C42' $connectionHot }\r\n    if (-not [string]::IsNullOrWhiteSpace([string]$connectionCold)) { Put $ds 'G42' $connectionCold }\r\n  }\r\n}";
   script = patchScript(
     script,
@@ -29,6 +34,24 @@ function writeHtriExcelCopyScript(tempRoot) {
     "Put $ds 'C43' 'C.S'",
     'GPHE frame material'
   );
+  script = patchScript(
+    script,
+    /\$model = First-NonBlank @\(\(Model-FromName \$base\), \(T \$api 'L10'\), \(T \$fin 'L11'\)\)/,
+    "$model = First-NonBlank @((Model-FromName $base), (Model-FromName (T $api 'L10')), (Model-FromName (T $fin 'L11')), (Model-FromName (T $api 'D6')), (Model-FromName (T $api 'M9')))",
+    'model extraction'
+  );
+  script = patchScript(
+    script,
+    /    Put \$ds 'D45' \$minTemp\r?\n    Put \$ds 'F45' '\/'\r?\n    Put \$ds 'H45' \$maxTemp\r?\n    Put \$ds 'J45' '\(Deg C\)'\r?\n    Put \$ds 'E46' \$designPressure\r?\n    Put \$ds 'F46' '\/'\r?\n    Put \$ds 'G46' \$testPressure\r?\n    Put \$ds 'J46' '\(barG\)'/,
+    "    Put $ds 'D44' $minTemp\r\n    Put $ds 'H44' $maxTemp\r\n    Put $ds 'J44' '(Deg C)'\r\n    Put $ds 'E45' $designPressure\r\n    Put $ds 'G45' $testPressure\r\n    Put $ds 'J45' '(barG)'",
+    'GPHE design rows'
+  );
+  script = patchAll(script, /Addr \$isGphe 'D45' 'C40'/g, "Addr $isGphe 'D44' 'C40'", 'design temperature min address');
+  script = patchAll(script, /Addr \$isGphe 'H45' 'G40'/g, "Addr $isGphe 'H44' 'G40'", 'design temperature max address');
+  script = patchAll(script, /Addr \$isGphe 'J45' 'J40'/g, "Addr $isGphe 'J44' 'J40'", 'design temperature unit address');
+  script = patchAll(script, /Addr \$isGphe 'E46' 'C41'/g, "Addr $isGphe 'E45' 'C41'", 'design pressure min address');
+  script = patchAll(script, /Addr \$isGphe 'G46' 'G41'/g, "Addr $isGphe 'G45' 'G41'", 'design pressure max address');
+  script = patchAll(script, /Addr \$isGphe 'J46' 'J41'/g, "Addr $isGphe 'J45' 'J41'", 'design pressure unit address');
   fs.writeFileSync(psPath, script, 'utf8');
   return psPath;
 }
