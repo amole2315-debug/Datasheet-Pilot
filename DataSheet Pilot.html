@@ -182,6 +182,22 @@
       margin: 2px 0 10px 128px;
       flex-wrap: wrap;
     }
+    .duty-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(110px, .7fr);
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .duty-cell label {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .duty-cell input, .duty-cell select {
+      width: 100%;
+      padding: 0 8px;
+    }
     .connection-pane {
       display: none;
     }
@@ -1320,9 +1336,20 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           <button type="button" data-duty-mode-button="Convert unit">Convert unit</button>
         </div>
         <div data-duty-mode="Set value">
-          ${inputRow("Hot value", "dutyHot")}
-          ${inputRow("Cold value", "dutyCold")}
-          ${inputRow("Unit", "dutyUnit")}
+          <div class="duty-grid">
+            <div class="duty-cell">
+              <label for="dutyHot">Hot</label>
+              <textarea id="dutyHot" data-key="dutyHot"></textarea>
+            </div>
+            <div class="duty-cell">
+              <label for="dutyCold">Cold</label>
+              <textarea id="dutyCold" data-key="dutyCold"></textarea>
+            </div>
+            <div class="duty-cell" data-duty-unit-cell>
+              <label for="dutyUnit">Unit</label>
+              <select id="dutyUnit" data-key="dutyUnit"></select>
+            </div>
+          </div>
         </div>
         <div data-duty-mode="Convert unit" style="display:none">
           ${selectRow("Target unit", "dutyUnitTarget", unitTargetsForConversionField("Heat capacity"))}
@@ -1489,7 +1516,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       const target = dynamicForm.querySelector("[data-key='dutyUnitTarget']");
       const refresh = () => {
         const dutyField = field ? field.value : "";
-        const canConvert = dutyField !== "Media" && unitTargetsForConversionField(dutyField).length > 0;
+        const unitOptions = unitTargetsForConversionField(dutyField);
+        const canConvert = dutyField !== "Media" && unitOptions.length > 0;
         if (mode) {
           const switchEl = dynamicForm.querySelector("[data-duty-mode-switch]");
           if (switchEl) switchEl.style.display = dutyField === "Media" ? "none" : "";
@@ -1498,11 +1526,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         dynamicForm.querySelectorAll("[data-duty-mode-button]").forEach(button => {
           button.classList.toggle("active", mode && button.dataset.dutyModeButton === mode.value);
         });
-        if (unit) unit.parentElement.style.display = dutyField === "Media" ? "none" : "";
+        const unitCell = dynamicForm.querySelector("[data-duty-unit-cell]");
+        if (unitCell) unitCell.style.display = dutyField === "Media" ? "none" : "";
+        if (unit) updateSelectOptions(unit, unitOptions, "");
         dynamicForm.querySelectorAll("[data-duty-mode]").forEach(section => {
           section.style.display = section.dataset.dutyMode === (mode ? mode.value : "Set value") ? "" : "none";
         });
-        if (target) updateSelectOptions(target, unitTargetsForConversionField(dutyField), "");
+        if (target) updateSelectOptions(target, unitOptions, "");
       };
       dynamicForm.querySelectorAll("[data-duty-mode-button]").forEach(button => {
         button.addEventListener("click", () => {
@@ -1659,9 +1689,14 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if (task.field === "Duty Values") {
         const dutyField = dynamicForm.querySelector("[data-key='dutyField']");
         const dutyMode = dynamicForm.querySelector("[data-key='dutyMode']");
+        const dutyUnit = dynamicForm.querySelector("[data-key='dutyUnit']");
         const dutyTarget = dynamicForm.querySelector("[data-key='dutyUnitTarget']");
         if (dutyField) dutyField.dispatchEvent(new Event("change"));
         if (dutyMode) dutyMode.dispatchEvent(new Event("change"));
+        if (dutyUnit && task.dutyUnit) {
+          ensureOption(dutyUnit, task.dutyUnit);
+          dutyUnit.value = task.dutyUnit;
+        }
         if (dutyTarget && task.dutyUnitTarget) {
           ensureOption(dutyTarget, task.dutyUnitTarget);
           dutyTarget.value = task.dutyUnitTarget;
