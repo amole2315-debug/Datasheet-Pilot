@@ -635,29 +635,23 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     window.JSZip = MiniZip;
 
     const FIELD_GROUPS = {
-      "Basic": [
-        "Customer", "Project Name", "Contact", "Service", "Item No.",
-        "Datasheet No.", "Date", "Designed by"
-      ],
-      "Duty Requirements": [
-        "Media", "Heat capacity", "Temperature inlet", "Temperature outlet",
-        "Mass flow rate", "Volume flowrate", "Operating Pressure", "Pressure drop"
-      ],
-      "Unit Data": [
-        "Design Temperature", "Design / Test Pressure", "Connection / Material",
-        "Soldering Material", "Plate material", "Gasket Material",
-        "O.H.T.C", "Heat transfer area", "Number of plates", "Surface margin"
-      ],
-      "Product Properties": [
-        "Property Unit Group", "Density (Liquid)", "Specific heat capacity (Liquid)",
-        "Thermal conductivity (Liquid)", "Viscosity (Liquid)", "Latent heat"
-      ]
+      "Basic": ["Basic Info"],
+      "Connection": ["Connection / Material"],
+      "Duty": ["Duty Values"],
+      "Design": ["Design Values"],
+      "Unit Conversion": ["Property Unit Group", "Unit Conversion"]
     };
 
-    const FIELD_AVAILABILITY = {
-      "Soldering Material": ["BPHE"]
-    };
-    const ALL_FIELD_NAMES = Object.values(FIELD_GROUPS).flat();
+    const FIELD_AVAILABILITY = {};
+    const ALL_FIELD_NAMES = [
+      ...Object.values(FIELD_GROUPS).flat(),
+      "Customer", "Project Name", "Contact", "Service", "Item No.",
+      "Media", "Heat capacity", "Temperature inlet", "Temperature outlet",
+      "Mass flow rate", "Volume flowrate", "Operating Pressure", "Pressure drop",
+      "Design Temperature", "Design / Test Pressure", "O.H.T.C",
+      "Density (Liquid)", "Specific heat capacity (Liquid)", "Thermal conductivity (Liquid)",
+      "Viscosity (Liquid)", "Latent heat", "Plate material", "Gasket Material"
+    ];
     const NO_UNIT_TARGET = "No matching unit found";
     const GPHE_MODELS = [
       "ZS025", "KC12", "M65S", "M70M", "M75T", "M80S", "M100T", "M100M",
@@ -768,6 +762,17 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       "Pressure drop": unitRules(PRESSURE_DROP_UNITS),
       "Design / Test Pressure": pressureRules()
     };
+    const BASIC_INFO_FIELDS = ["Customer", "Project Name", "Contact", "Service", "Item No."];
+    const DUTY_VALUE_FIELDS = [
+      "Media", "Heat capacity", "Temperature inlet", "Temperature outlet",
+      "Mass flow rate", "Volume flowrate", "Operating Pressure", "Pressure drop"
+    ];
+    const UNIT_CONVERSION_FIELDS = [
+      "Heat capacity", "Mass flow rate", "Volume flowrate", "Operating Pressure", "Pressure drop",
+      "Design / Test Pressure", "O.H.T.C", "Specific heat capacity (Liquid)",
+      "Thermal conductivity (Liquid)", "Latent heat"
+    ];
+    const DESIGN_VALUE_FIELDS = ["Design Temperature", "Design / Test Pressure"];
 
     const files = [];
     const tasks = [];
@@ -999,6 +1004,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       const targets = new Set();
       candidates.forEach(candidate => targets.add(targetUnit(candidate.rule)));
       return [...targets];
+    }
+
+    function unitTargetsForConversionField(field) {
+      return availableUnitTargetsForField(field).filter(Boolean);
     }
 
     function findConversionRule(field, fromUnit, toUnit) {
@@ -1288,6 +1297,39 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return `<div class="connection-pane${active ? " active" : ""}" data-connection-pane-group="${escapeHtml(group)}" data-connection-pane="${escapeHtml(key)}">${rows}</div>`;
     }
 
+    function fieldKey(name) {
+      return String(name || "").replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+    }
+
+    function basicInfoFormHtml() {
+      return BASIC_INFO_FIELDS.map(field => inputRow(field, `basic_${fieldKey(field)}`)).join("");
+    }
+
+    function dutyValuesFormHtml() {
+      return DUTY_VALUE_FIELDS.map(field => {
+        const key = fieldKey(field);
+        let html = inputRow(`${field} Hot`, `duty_${key}_hot`) + inputRow(`${field} Cold`, `duty_${key}_cold`);
+        if (field !== "Media") html += inputRow(`${field} Unit`, `duty_${key}_unit`);
+        return html;
+      }).join("");
+    }
+
+    function designValuesFormHtml() {
+      return `
+        ${inputRow("Design Temperature", "designTemperatureValue")}
+        ${inputRow("Design Temperature Unit", "designTemperatureUnit")}
+        ${inputRow("Design / Test Pressure", "designPressureValue")}
+        ${inputRow("Design / Test Pressure Unit", "designPressureUnit")}
+      `;
+    }
+
+    function unitConversionFormHtml() {
+      return `
+        ${selectRow("Target row", "unitField", UNIT_CONVERSION_FIELDS)}
+        ${selectRow("Target unit", "unitTarget", unitTargetsForConversionField(UNIT_CONVERSION_FIELDS[0]))}
+      `;
+    }
+
     function connectionFormHtml() {
       const positionRows = [
         ["Hot In Position", "hotInPosition", "F2"],
@@ -1300,7 +1342,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         ${selectRow("Standard", "standard", CONNECTION_STANDARDS, standard)}
         ${selectRow("Apply range", "connectionScope", ["All same", "Hot / Cold", "Individual"])}
         ${selectRow("Plate material", "connectionPlateMaterial", CONNECTION_BASE_MATERIALS, "316L")}
-        ${selectRow("Frame material", "frameMaterial", ["C.S"])}
+        ${selectRow("Gasket Material", "gasketMaterial", ["NBR", "EPDM", "Viton", "Viton-G"])}
+        ${selectRow("Soldering Material", "solderingMaterial", ["", "SUS", "Copper"])}
         <div data-connection-scope="All same">
           ${scopedConnectionRows("all", "", standard)}
         </div>
@@ -1343,6 +1386,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         });
       }
       if (isConnectionField(field)) setupConnectionForm();
+      if (field === "Unit Conversion") setupUnitConversionForm();
     }
 
     function updateSelectOptions(select, values, fallback) {
@@ -1411,6 +1455,16 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       refresh();
     }
 
+    function setupUnitConversionForm() {
+      const field = dynamicForm.querySelector("[data-key='unitField']");
+      const target = dynamicForm.querySelector("[data-key='unitTarget']");
+      const refresh = () => {
+        updateSelectOptions(target, unitTargetsForConversionField(field ? field.value : ""), "");
+      };
+      if (field) field.addEventListener("change", refresh);
+      refresh();
+    }
+
     function currentModeLabel() {
       const mode = dynamicForm.querySelector("[data-key='mode']");
       return mode ? mode.value : undefined;
@@ -1420,6 +1474,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if (mode === "Convert unit") {
         return selectRow("Target unit", "unitTarget", unitTargets.length ? unitTargets : [NO_UNIT_TARGET]);
       }
+      if (field === "Basic Info") return basicInfoFormHtml();
+      if (field === "Duty Values") return dutyValuesFormHtml();
+      if (field === "Design Values") return designValuesFormHtml();
+      if (field === "Unit Conversion") return unitConversionFormHtml();
       if (isConnectionField(field)) {
         return connectionFormHtml();
       }
@@ -1540,6 +1598,15 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         if (standard) standard.dispatchEvent(new Event("change"));
         if (scope) scope.dispatchEvent(new Event("change"));
       }
+      if (task.field === "Unit Conversion") {
+        const unitField = dynamicForm.querySelector("[data-key='unitField']");
+        const unitTarget = dynamicForm.querySelector("[data-key='unitTarget']");
+        if (unitField) unitField.dispatchEvent(new Event("change"));
+        if (unitTarget && task.unitTarget) {
+          ensureOption(unitTarget, task.unitTarget);
+          unitTarget.value = task.unitTarget;
+        }
+      }
     }
 
     function ensureOption(select, value) {
@@ -1560,6 +1627,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         ? ` (#${targetNumbers.join(", #")})`
         : "";
       if (task.mode === "convert") return `${task.field}: target ${task.unitTarget}${scope}`;
+      if (task.field === "Basic Info") return `${task.field}${scope}`;
+      if (task.field === "Duty Values") return `${task.field}${scope}`;
+      if (task.field === "Design Values") return `${task.field}${scope}`;
+      if (task.field === "Unit Conversion") return `${task.unitField || "Unit"} -> ${task.unitTarget || ""}${scope}`;
       if (isConnectionField(task.field)) {
         const detail = [task.standard, task.connectionScope, task.connectionPlateMaterial].filter(Boolean).join(" | ");
         return `${task.field}${detail ? `: ${detail}` : ""}${scope}`;
@@ -1690,6 +1761,18 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
       applyTaskToDoc(doc, task) {
         const field = task.field;
+        if (field === "Basic Info") {
+          return this.applyBasicInfoTask(doc, task);
+        }
+        if (field === "Duty Values") {
+          return this.applyDutyValuesTask(doc, task);
+        }
+        if (field === "Design Values") {
+          return this.applyDesignValuesTask(doc, task);
+        }
+        if (field === "Unit Conversion") {
+          return this.applyUnitConversionTask(doc, task);
+        }
         if (["Customer", "Project Name", "Contact", "Service", "Item No.", "Date"].includes(field)) {
           return this.setHeaderPair(doc, field, task.value || "");
         }
@@ -1730,6 +1813,42 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         return false;
       }
 
+      applyBasicInfoTask(doc, task) {
+        let changed = false;
+        for (const field of BASIC_INFO_FIELDS) {
+          const value = task[`basic_${fieldKey(field)}`];
+          if (value && this.setHeaderPair(doc, field, value)) changed = true;
+        }
+        return changed;
+      }
+
+      applyDutyValuesTask(doc, task) {
+        let changed = false;
+        for (const field of DUTY_VALUE_FIELDS) {
+          const key = fieldKey(field);
+          const hot = task[`duty_${key}_hot`] || "";
+          const cold = task[`duty_${key}_cold`] || "";
+          const unit = field === "Media" ? "" : task[`duty_${key}_unit`] || "";
+          if ((hot || cold || unit) && this.setTwoSidedRow(doc, field, hot, cold, unit)) changed = true;
+        }
+        return changed;
+      }
+
+      applyDesignValuesTask(doc, task) {
+        let changed = false;
+        if ((task.designTemperatureValue || task.designTemperatureUnit) && this.setSingleRow(doc, "Design temperature", task.designTemperatureValue || "", task.designTemperatureUnit || "")) changed = true;
+        if ((task.designPressureValue || task.designPressureUnit) && this.setSingleRow(doc, "Design / Test Pressure", task.designPressureValue || "", task.designPressureUnit || "")) changed = true;
+        return changed;
+      }
+
+      applyUnitConversionTask(doc, task) {
+        const field = task.unitField || "";
+        const unitTarget = task.unitTarget || "";
+        if (!field || !unitTarget) return false;
+        const twoSided = ["Heat capacity", "Mass flow rate", "Volume flowrate", "Operating Pressure", "Pressure drop"].includes(field);
+        return this.convertRow(doc, field, { field, unitTarget }, twoSided);
+      }
+
       applyConnectionTask(doc, task) {
         const standard = connectionStandardPart(task.standard || "KS");
         const baseMaterial = task.connectionPlateMaterial || "316L";
@@ -1761,6 +1880,12 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         if (this.setConnectionRow(doc, "Nozzle Material", materialValues("Nozzle"))) changed = true;
         if (this.setConnectionRow(doc, "Lining Material", materialValues("Lining"))) changed = true;
         if (this.setSingleRow(doc, "Plate material", plateMaterialForStandard(baseMaterial, standard), "")) changed = true;
+        if (task.gasketMaterial && this.setSingleRow(doc, "Gasket Material", task.gasketMaterial, "")) changed = true;
+        if (task.solderingMaterial && this.isBpheItem()) {
+          const modelPrefix = solderingModelPrefix(task.solderingMaterial);
+          if (this.setSingleRow(doc, "Soldering Material", task.solderingMaterial, "")) changed = true;
+          if (modelPrefix && this.replaceBpModelPrefix(doc, modelPrefix)) changed = true;
+        }
         if (this.setSingleRow(doc, "Frame material", frameMaterialForStandard(task.frameMaterial || "C.S", standard), "")) changed = true;
         return changed;
       }
