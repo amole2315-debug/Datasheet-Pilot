@@ -125,6 +125,139 @@ function Clear-KnownSlashCells($sheet, [bool]$isGphe) {
   foreach ($addr in $cells) { Put $sheet $addr '' }
 }
 
+function Override-Value($item, [string]$key, $fallback = '') {
+  if ($null -ne $item.overrides) {
+    $prop = $item.overrides.PSObject.Properties[$key]
+    if ($null -ne $prop -and -not [string]::IsNullOrWhiteSpace([string]$prop.Value)) { return $prop.Value }
+  }
+  return $fallback
+}
+
+function Unit-Text([string]$unit) {
+  $u = ([string]$unit).Trim()
+  if ([string]::IsNullOrWhiteSpace($u)) { return '' }
+  if ($u.StartsWith('(') -and $u.EndsWith(')')) { return $u }
+  return '(' + $u + ')'
+}
+
+function Split-Pair([string]$text) {
+  $parts = ([string]$text) -split '\s*/\s*|\s*,\s*'
+  if ($parts.Count -ge 2) { return @($parts[0].Trim(), $parts[1].Trim()) }
+  return @(([string]$text).Trim(), '')
+}
+
+function Set-ModelPrefix([string]$model, [string]$material) {
+  $m = ([string]$model).Trim()
+  if ($m -notmatch '^(MC|MS)') { return $m }
+  if ($material -match 'Stainless|SUS|^MS$') { return ($m -replace '^(MC|MS)', 'MS') }
+  if ($material -match 'Copper|^MC$') { return ($m -replace '^(MC|MS)', 'MC') }
+  return $m
+}
+
+function Display-Solder([string]$material, [string]$model) {
+  if ($material -match 'Stainless|SUS|^MS$') { return 'Stainless Steel' }
+  if ($material -match 'Copper|^MC$') { return 'Copper' }
+  if ($model -match '^MS') { return 'Stainless Steel' }
+  return 'Copper'
+}
+
+function Heat-Factor([string]$unit) {
+  $u = (([string]$unit).Trim('(',')',' ') -replace '\s+', '').ToLowerInvariant()
+  switch -Regex ($u) {
+    '^kw$' { return 1000.0 }
+    '^w$' { return 1.0 }
+    '^(kcal/hr|kcalh|kcal/hour)$' { return 4186.8 / 3600.0 }
+    '^(btu/hr|btuh|btu/hour)$' { return 0.29307107 }
+    default { return $null }
+  }
+}
+
+function Pressure-Factor([string]$unit) {
+  $u = (([string]$unit).Trim('(',')',' ') -replace '\s+', '' -replace '_', '' -replace '-', '').ToLowerInvariant()
+  if ($u -match '^(pa|kpa|mpa|bar|kgf/cm2|kgfcm2|atm|psi|torr)(g|a)$') { $u = $matches[1] }
+  switch -Regex ($u) {
+    '^pa$' { return 1.0 }
+    '^kpa$' { return 1000.0 }
+    '^mpa$' { return 1000000.0 }
+    '^bar$' { return 100000.0 }
+    '^kgf/cm2$|^kgfcm2$' { return 98066.5 }
+    '^atm$' { return 101325.0 }
+    '^psi$' { return 6894.757293168 }
+    '^torr$' { return 133.322368421 }
+    default { return $null }
+  }
+}
+
+function Convert-UnitValue($value, [string]$fromUnit, [string]$toUnit, [string]$kind) {
+  $n = Num $value
+  if ($null -eq $n) { return $value }
+  $from = if ($kind -eq 'heat') { Heat-Factor $fromUnit } else { Pressure-Factor $fromUnit }
+  $to = if ($kind -eq 'heat') { Heat-Factor $toUnit } else { Pressure-Factor $toUnit }
+  if ($null -eq $from -or $null -eq $to -or $to -eq 0) { return $value }
+  return [Math]::Round(($n * $from / $to), 6)
+}
+
+function Convert-Cells($sheet, [string[]]$cells, [string]$unitCell, [string]$targetUnit, [string]$kind) {
+  if ([string]::IsNullOrWhiteSpace($targetUnit)) { return }
+  $fromUnit = T $sheet $unitCell
+  foreach ($addr in $cells) {
+    Put $sheet $addr (Convert-UnitValue (T $sheet $addr) $fromUnit $targetUnit $kind)
+    try { $sheet.Range($addr).NumberFormat = '0.######' } catch {}
+  }
+  Put $sheet $unitCell (Unit-Text $targetUnit)
+}
+
+function Apply-HtriOverrides($ds, $item, [bool]$isGphe) {
+  Put $ds 'B1' (Override-Value $item 'Customer' (T $ds 'B1'))
+  Put $ds 'B2' (Override-Value $item 'Project Name' (T $ds 'B2'))
+  Put $ds 'B3' (Override-Value $item 'Contact' (T $ds 'B3'))
+  Put $ds 'J3' (Override-Value $item 'Item No.' (T $ds 'J3'))
+  Put $ds 'B4' (Override-Value $item 'Service' (T $ds 'B4'))
+  Put $ds 'C11' (Override-Value $item 'Media Hot' (T $ds 'C11'))
+  Put $ds 'G11' (Override-Value $item 'Media Cold' (T $ds 'G11'))
+
+  $heatValue = Override-Value $item 'Heat capacity' ''
+  if (-not [string]::IsNullOrWhiteSpace([string]$heatValue)) { Put $ds 'E12' $heatValue }
+  $heatUnit = Override-Value $item 'Heat capacity Unit' ''
+  if (-not [string]::IsNullOrWhiteSpace([string]$heatUnit)) { Put $ds 'J12' (Unit-Text $heatUnit) }
+  Convert-Cells $ds @('E12') 'J12' (Override-Value $item 'Heat capacity Target Unit' '') 'heat'
+
+  $pdHot = Addr $isGphe 'C16' 'C17'
+  $pdCold = Addr $isGphe 'G16' 'G17'
+  $pdUnit = Addr $isGphe 'J16' 'J17'
+  Put $ds $pdHot (Override-Value $item 'Pressure drop Hot' (T $ds $pdHot))
+  Put $ds $pdCold (Override-Value $item 'Pressure drop Cold' (T $ds $pdCold))
+  $pdUnitValue = Override-Value $item 'Pressure drop Unit' ''
+  if (-not [string]::IsNullOrWhiteSpace([string]$pdUnitValue)) { Put $ds $pdUnit (Unit-Text $pdUnitValue) }
+  Convert-Cells $ds @($pdHot, $pdCold) $pdUnit (Override-Value $item 'Pressure drop Target Unit' '') 'pressure'
+
+  $opHot = Addr $isGphe 'C19' 'C18'
+  $opCold = Addr $isGphe 'G19' 'G18'
+  $opUnit = Addr $isGphe 'J19' 'J18'
+  Put $ds $opHot (Override-Value $item 'Operating Pressure Hot' (T $ds $opHot))
+  Put $ds $opCold (Override-Value $item 'Operating Pressure Cold' (T $ds $opCold))
+  $opUnitValue = Override-Value $item 'Operating Pressure Unit' ''
+  if (-not [string]::IsNullOrWhiteSpace([string]$opUnitValue)) { Put $ds $opUnit (Unit-Text $opUnitValue) }
+  Convert-Cells $ds @($opHot, $opCold) $opUnit (Override-Value $item 'Operating Pressure Target Unit' '') 'pressure'
+
+  $dt = Split-Pair (Override-Value $item 'Design Temperature' '')
+  if (-not [string]::IsNullOrWhiteSpace($dt[0])) {
+    Put $ds (Addr $isGphe 'D45' 'C40') $dt[0]
+    if (-not [string]::IsNullOrWhiteSpace($dt[1])) { Put $ds (Addr $isGphe 'H45' 'G40') $dt[1] }
+  }
+  $dtUnit = Override-Value $item 'Design Temperature Unit' ''
+  if (-not [string]::IsNullOrWhiteSpace([string]$dtUnit)) { Put $ds (Addr $isGphe 'J45' 'J40') (Unit-Text $dtUnit) }
+
+  $dp = Split-Pair (Override-Value $item 'Design / Test Pressure' '')
+  if (-not [string]::IsNullOrWhiteSpace($dp[0])) {
+    Put $ds (Addr $isGphe 'E46' 'C41') $dp[0]
+    if (-not [string]::IsNullOrWhiteSpace($dp[1])) { Put $ds (Addr $isGphe 'G46' 'G41') $dp[1] }
+  }
+  $designUnit = Override-Value $item 'Design / Test Pressure Unit' ''
+  if (-not [string]::IsNullOrWhiteSpace([string]$designUnit)) { Put $ds (Addr $isGphe 'J46' 'J41') (Unit-Text $designUnit) }
+  Convert-Cells $ds @((Addr $isGphe 'E46' 'C41'), (Addr $isGphe 'G46' 'G41')) (Addr $isGphe 'J46' 'J41') (Override-Value $item 'Design / Test Pressure Target Unit' '') 'pressure'
+}
+
 function Apply-HtriValues($target, $source, $item, [string]$kind) {
   $ds = Sheet-Like $target 'MC Datasheet|Datasheet'
   $api = Sheet-Like $source 'API\s*662'
@@ -137,6 +270,8 @@ function Apply-HtriValues($target, $source, $item, [string]$kind) {
 
   $base = [IO.Path]::GetFileNameWithoutExtension($item.name)
   $model = First-NonBlank @((Model-FromName $base), (T $api 'L10'), (T $fin 'L11'))
+  $materialOverride = Override-Value $item 'Soldering Material' ''
+  $model = Set-ModelPrefix $model $materialOverride
   $plates = First-NonBlank @((Plates-FromName $base), (T $api 'L38'))
   $isGphe = $kind -eq 'GPHE'
 
@@ -264,7 +399,7 @@ function Apply-HtriValues($target, $source, $item, [string]$kind) {
     Put $ds 'G46' $testPressure
     Put $ds 'J46' '(barG)'
   } else {
-    $solder = if ($model -match '^MS') { 'SUS' } else { 'Copper' }
+    $solder = Display-Solder $materialOverride $model
     Put $ds 'C36' $solder
     Put $ds 'C37' (T $api 'N37')
     Put $ds 'E37' (T $api 'Q37')
@@ -283,6 +418,7 @@ function Apply-HtriValues($target, $source, $item, [string]$kind) {
     Put $ds 'G41' $testPressure
     Put $ds 'J41' '(barG)'
   }
+  Apply-HtriOverrides $ds $item $isGphe
   Clear-KnownSlashCells $ds $isGphe
 }
 
@@ -300,6 +436,7 @@ try {
 
     $sourceBase = [IO.Path]::GetFileNameWithoutExtension($item.name)
     $modelForName = Safe-Part (Model-FromName $sourceBase) 'HTRI'
+    $modelForName = Safe-Part (Set-ModelPrefix $modelForName (Override-Value $item 'Soldering Material' '')) $modelForName
     $platesForName = Plates-FromName $sourceBase
     if ([string]::IsNullOrWhiteSpace($platesForName)) {
       $fileBase = $modelForName + '_Datasheet'

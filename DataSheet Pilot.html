@@ -1937,8 +1937,8 @@
     let htriEditingTaskIndex = -1;
     const HTRI_FIELD_GROUPS = {
       "Basic": ["Customer", "Project Name", "Contact", "Service", "Item No."],
-      "Duty Requirements": ["Media"],
-      "Unit Data": ["Soldering Material"]
+      "Duty Requirements": ["Media", "Heat capacity", "Operating Pressure", "Pressure drop"],
+      "Unit Data": ["Soldering Material", "Design Temperature", "Design / Test Pressure"]
     };
     const HTRI_FIELD_AVAILABILITY = {
       "Soldering Material": ["BPHE"]
@@ -2263,21 +2263,49 @@
       htriFieldSelect.addEventListener("change", renderHtriDynamicForm);
       refreshHtriFieldSelect();
     }
-    function renderHtriDynamicForm() {
+    const HTRI_CONVERT_UNITS = {
+      "Heat capacity": ["kcal/hr", "kW", "W", "Btu/hr"],
+      "Operating Pressure": ["Pa_G", "kPa_G", "MPa_G", "bar_G", "kgf_cm2_G", "atm_G", "psi_G", "torr_G", "Pa_A", "kPa_A", "MPa_A", "bar_A", "kgf_cm2_A", "atm_A", "psi_A", "torr_A"],
+      "Pressure drop": ["Pa", "kPa", "MPa", "bar", "kgf/cm²", "atm", "psi", "torr"],
+      "Design / Test Pressure": ["Pa_G", "kPa_G", "MPa_G", "bar_G", "kgf_cm2_G", "atm_G", "psi_G", "torr_G", "Pa_A", "kPa_A", "MPa_A", "bar_A", "kgf_cm2_A", "atm_A", "psi_A", "torr_A"]
+    };
+
+    function renderHtriDynamicForm(modeOverride) {
       const field = htriFieldSelect.value;
-      if (field === "Media") {
+      const canConvert = Boolean(HTRI_CONVERT_UNITS[field]);
+      const modeValue = modeOverride || "Set value";
+      let html = "";
+      if (canConvert) html += selectRow("Mode", "mode", ["Set value", "Convert unit"]);
+      if (modeValue === "Convert unit" && canConvert) {
+        htriDynamicForm.innerHTML = html + selectRow("Target unit", "unitTarget", HTRI_CONVERT_UNITS[field]);
+      } else if (field === "Media") {
         htriDynamicForm.innerHTML = inputRow("Hot Side", "hot") + inputRow("Cold Side", "cold");
       } else if (field === "Soldering Material") {
-        htriDynamicForm.innerHTML = selectRow("Material", "value", ["SUS", "Copper"]);
+        htriDynamicForm.innerHTML = selectRow("Material", "value", ["Copper", "Stainless Steel"]);
+      } else if (["Operating Pressure", "Pressure drop"].includes(field)) {
+        htriDynamicForm.innerHTML = html + inputRow("Hot Side", "hot") + inputRow("Cold Side", "cold") + inputRow("Unit", "unit");
+      } else if (field === "Design Temperature") {
+        htriDynamicForm.innerHTML = inputRow("Min / Max", "value", "0 / 100") + inputRow("Unit", "unit", "Deg C");
+      } else if (field === "Design / Test Pressure") {
+        htriDynamicForm.innerHTML = html + inputRow("Design / Test", "value", "10 / 13") + inputRow("Unit", "unit", "barG");
+      } else if (field === "Heat capacity") {
+        htriDynamicForm.innerHTML = html + inputRow("Value", "value") + inputRow("Unit", "unit", "kcal/hr");
       } else {
         htriDynamicForm.innerHTML = inputRow("Value", "value");
+      }
+      const mode = htriDynamicForm.querySelector("[data-key='mode']");
+      if (mode) {
+        mode.value = modeValue;
+        mode.addEventListener("change", () => renderHtriDynamicForm(mode.value));
       }
     }
 
     function collectHtriFormValues() {
       const task = { field: htriFieldSelect.value, mode: "set" };
       htriDynamicForm.querySelectorAll("[data-key]").forEach(input => {
-        task[input.dataset.key] = input.value;
+        const key = input.dataset.key;
+        if (key === "mode") task.mode = input.value === "Convert unit" ? "convert" : "set";
+        else task[key] = input.value;
       });
       return task;
     }
@@ -2340,9 +2368,10 @@
       renderHtriFiles();
       refreshHtriFieldSelect();
       htriFieldSelect.value = task.field;
-      renderHtriDynamicForm();
+      renderHtriDynamicForm(task.mode === "convert" ? "Convert unit" : "Set value");
       htriDynamicForm.querySelectorAll("[data-key]").forEach(input => {
         const key = input.dataset.key;
+        if (key === "mode") input.value = task.mode === "convert" ? "Convert unit" : "Set value";
         if (Object.prototype.hasOwnProperty.call(task, key)) input.value = task[key] || "";
       });
       updateHtriApplyButton();
@@ -2443,6 +2472,15 @@
         if (task.field === "Media") {
           if (task.hot) overrides["Media Hot"] = task.hot;
           if (task.cold) overrides["Media Cold"] = task.cold;
+        } else if (task.mode === "convert" && task.unitTarget) {
+          overrides[`${task.field} Target Unit`] = task.unitTarget;
+        } else if (["Operating Pressure", "Pressure drop"].includes(task.field)) {
+          if (task.hot) overrides[`${task.field} Hot`] = task.hot;
+          if (task.cold) overrides[`${task.field} Cold`] = task.cold;
+          if (task.unit) overrides[`${task.field} Unit`] = task.unit;
+        } else if (["Design Temperature", "Design / Test Pressure", "Heat capacity"].includes(task.field)) {
+          if (task.value) overrides[task.field] = task.value;
+          if (task.unit) overrides[`${task.field} Unit`] = task.unit;
         } else if (task.value) {
           overrides[task.field] = task.value;
         }

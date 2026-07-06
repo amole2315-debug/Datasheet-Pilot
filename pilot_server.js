@@ -77,14 +77,20 @@ async function handleHtriConvert(req, res) {
     fs.mkdirSync(uploadDir, { recursive: true });
     const parts = parseMultipart(await readBody(req), req.headers['content-type']);
     const manifest = { files: [] };
+    const overrides = {};
     for (const part of parts) {
+      if (!part.filename && part.name && part.name.startsWith('override__')) {
+        const indexText = part.name.split('__')[1];
+        try { overrides[indexText] = JSON.parse(part.data.toString('utf8') || '{}'); } catch { overrides[indexText] = {}; }
+        continue;
+      }
       if (!part.filename) continue;
       const [prefix, indexText, kindText] = part.name.split('__');
       if (prefix !== 'htri') continue;
       const filename = safeName(part.filename);
       const filePath = path.join(uploadDir, `${indexText}_${filename}`);
       fs.writeFileSync(filePath, part.data);
-      manifest.files.push({ name: filename, path: filePath, kind: kindText === 'GPHE' ? 'GPHE' : 'BPHE' });
+      manifest.files.push({ name: filename, path: filePath, kind: kindText === 'GPHE' ? 'GPHE' : 'BPHE', overrides: overrides[indexText] || {} });
     }
     if (!manifest.files.length) throw new Error('No HTRI files were uploaded');
     const manifestPath = path.join(tempRoot, 'manifest.json');
