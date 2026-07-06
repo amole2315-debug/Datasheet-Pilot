@@ -1708,11 +1708,15 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         const types = valuesFor("ConnectionType", "UnLined");
         const ratings = valuesFor("Rating", connectionRatingOptions(standard)[0]).map(value => connectionRatingLabel(standard, value));
         const sizes = valuesFor("Size", connectionSizeOptions(standard)[Math.min(3, connectionSizeOptions(standard).length - 1)]).map(value => connectionSizeForStandard(value, standard));
+        const connectionTexts = columns.map((column, index) => `${ratings[index]} ${sizes[index]} ${types[index]}`.replace(/\s+/g, " ").trim());
+        const hotConnection = this.connectionSideSummary(connectionTexts[0], connectionTexts[1]);
+        const coldConnection = this.connectionSideSummary(connectionTexts[2], connectionTexts[3]);
         const materialValues = component => columns.map((column, index) => {
           const explicit = this.connectionScopedValue(task, `${component}Material`, column, "Auto");
           return autoConnectionMaterial(types[index], standard, baseMaterial, component.toLowerCase(), explicit);
         });
         let changed = false;
+        if (this.setConnectionSummaryRow(doc, hotConnection, coldConnection)) changed = true;
         if (this.setConnectionRow(doc, "Position", positions)) changed = true;
         if (this.setConnectionRow(doc, "Rating", ratings)) changed = true;
         if (this.setConnectionRow(doc, "Size", sizes)) changed = true;
@@ -1723,6 +1727,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         if (this.setSingleRow(doc, "Plate material", plateMaterialForStandard(baseMaterial, standard), "")) changed = true;
         if (this.setSingleRow(doc, "Frame material", frameMaterialForStandard(task.frameMaterial || "C.S", standard), "")) changed = true;
         return changed;
+      }
+
+      connectionSideSummary(inlet, outlet) {
+        return inlet === outlet ? inlet : `In: ${inlet} / Out: ${outlet}`;
       }
 
       connectionScopedValue(task, name, column, fallback) {
@@ -1928,6 +1936,31 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
                 changed = true;
               }
             });
+            return changed;
+          }
+        }
+        return changed;
+      }
+
+      setConnectionSummaryRow(doc, hot, cold) {
+        let changed = false;
+        for (const row of this.rows(doc)) {
+          const cells = this.cells(row);
+          for (let i = 0; i < cells.length; i += 1) {
+            if (cleanLabel(this.cellText(cells[i])) !== cleanLabel("Connection Type")) continue;
+            const pairs = [
+              [cells[i + 1], hot, "Connection Type Hot"],
+              [cells[i + 2], cold, "Connection Type Cold"]
+            ];
+            for (const [cell, value, label] of pairs) {
+              if (!cell || !value) continue;
+              const old = this.cellText(cell);
+              if (old !== value) {
+                this.setCellText(cell, value);
+                this.changes.push([label, old, value]);
+                changed = true;
+              }
+            }
             return changed;
           }
         }
