@@ -306,6 +306,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         </label>
         <button id="selectAllBtn">All</button>
         <button id="selectNoneBtn">None</button>
+        <button id="deleteSelectedBtn">Delete</button>
         <span id="status" class="status">Select .docx files or drag them here.</span>
       </div>
       <div class="table-wrap">
@@ -382,6 +383,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           </label>
           <button id="htriSelectAllBtn">All</button>
           <button id="htriSelectNoneBtn">None</button>
+          <button id="htriDeleteSelectedBtn">Delete</button>
           <span id="htriStatus" class="status">Select HTRI .xls/.xlsx files and BPHE/GPHE .xlsm templates.</span>
         </div>
         <div class="table-wrap">
@@ -403,7 +405,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
       <section class="side">
         <div class="toolbar">
-          <button id="htriDownloadBtn" class="primary" type="button">Download XLSM</button>
+          <button id="htriDownloadDatasheetBtn" class="active" type="button">Datasheet</button>
+          <button id="htriDownloadZipBtn" type="button">ZIP</button>
+          <button id="htriDownloadBtn" class="primary" type="button">Download</button>
         </div>
         <div class="side-body">
           <div class="field-row">
@@ -741,6 +745,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     let selectedTaskIndex = -1;
     let editingTaskIndex = -1;
     let downloadMode = "zip";
+    let htriDownloadMode = "datasheet";
     let isReorderingFiles = false;
 
     const fileRows = document.getElementById("fileRows");
@@ -753,6 +758,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     const applyTaskBtn = document.getElementById("applyTaskBtn");
     const downloadZipBtn = document.getElementById("downloadZipBtn");
     const downloadFilesBtn = document.getElementById("downloadFilesBtn");
+    const htriDownloadDatasheetBtn = document.getElementById("htriDownloadDatasheetBtn");
+    const htriDownloadZipBtn = document.getElementById("htriDownloadZipBtn");
 
     function normalize(text) {
       return String(text || "").replace(/\s+/g, " ").trim();
@@ -878,6 +885,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           const classification = await editor.scanClassification();
           item.kind = classification.kind || item.kind;
           item.form = classification.form || item.form;
+          item.kind = item.kind || classifyModel(modelFromText(item.result));
         } catch (error) {
           item.result = readableError(error);
         }
@@ -974,6 +982,43 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         task.targetNames = task.targets.map(index => files[index].name);
         task.targetNumbers = task.targets.map(index => index + 1);
       });
+    }
+
+    function remapTasksAfterDelete(taskItems, previousFiles, remainingFiles) {
+      const newIndexByFile = new Map(remainingFiles.map((file, index) => [file, index]));
+      for (let i = taskItems.length - 1; i >= 0; i -= 1) {
+        const nextTargets = (taskItems[i].targets || [])
+          .map(index => previousFiles[index])
+          .filter(file => newIndexByFile.has(file))
+          .map(file => newIndexByFile.get(file));
+        if (!nextTargets.length) {
+          taskItems.splice(i, 1);
+          continue;
+        }
+        taskItems[i].targets = nextTargets;
+        taskItems[i].targetNames = nextTargets.map(index => remainingFiles[index].name);
+        taskItems[i].targetNumbers = nextTargets.map(index => index + 1);
+      }
+    }
+
+    function deleteSelectedFiles() {
+      const previousFiles = [...files];
+      const kept = files.filter(file => !file.selected);
+      const removed = files.length - kept.length;
+      if (!removed) {
+        statusEl.textContent = "No selected Word files to delete.";
+        return;
+      }
+      files.splice(0, files.length, ...kept);
+      remapTasksAfterDelete(tasks, previousFiles, files);
+      selectedTaskIndex = tasks.length ? Math.min(selectedTaskIndex, tasks.length - 1) : -1;
+      editingTaskIndex = -1;
+      renderFiles();
+      refreshFieldSelect();
+      renderTasks();
+      preview();
+      updateApplyButton();
+      statusEl.textContent = `Deleted ${removed} file(s) from the list.`;
     }
 
     function escapeHtml(text) {
@@ -1775,6 +1820,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       const knownModels = [...BPHE_MODELS, ...GPHE_MODELS].sort((a, b) => b.length - a.length);
       const known = knownModels.find(model => new RegExp(`\\b${escapeRegExp(model)}\\b`, "i").test(value));
       if (known) return known;
+      const spacedBphe = value.match(/\bM\s*([CSA])\s*(\d+)\s*([A-Z]*)\b/i);
+      if (spacedBphe) return `M${spacedBphe[1]}${spacedBphe[2]}${spacedBphe[3]}`.toUpperCase();
       const match = value.match(/\b(MX\d+[A-Z]+|M\d+[A-Z]+|M[CS]\d+[A-Z]*|MA\d+[A-Z]*|ZS\d+|KC\d+)\b/i);
       return match ? match[1].toUpperCase() : "";
     }
@@ -2278,6 +2325,26 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       });
     }
 
+    function deleteSelectedHtriFiles() {
+      const previousFiles = [...htriFiles];
+      const kept = htriFiles.filter(file => !file.selected);
+      const removed = htriFiles.length - kept.length;
+      if (!removed) {
+        htriStatus.textContent = "No selected HTRI files to delete.";
+        return;
+      }
+      htriFiles.splice(0, htriFiles.length, ...kept);
+      remapTasksAfterDelete(htriTasks, previousFiles, htriFiles);
+      htriSelectedTaskIndex = htriTasks.length ? Math.min(htriSelectedTaskIndex, htriTasks.length - 1) : -1;
+      htriEditingTaskIndex = -1;
+      renderHtriFiles();
+      refreshHtriFieldSelect();
+      renderHtriTasks();
+      renderHtriPreview();
+      updateHtriApplyButton();
+      htriStatus.textContent = `Deleted ${removed} HTRI file(s) from the list.`;
+    }
+
     function refreshHtriFieldSelect() {
       const previous = htriFieldSelect.value;
       renderGroupedFieldSelect(htriFieldSelect, HTRI_FIELD_GROUPS, selectedKinds(htriFiles), HTRI_FIELD_AVAILABILITY, previous);
@@ -2714,7 +2781,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return [itemNo, model, plates].filter(Boolean).join("_") + "." + extension;
     }
 
-    async function downloadHtriViaServer(selected) {
+    async function convertHtriViaServer(selected) {
       if (!/^https?:$/i.test(location.protocol)) throw new Error("Local server is not running.");
       const form = new FormData();
       selected.forEach(({ item, index }) => {
@@ -2733,7 +2800,19 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       const filename = match ? decodeURIComponent(match[1].replace(/"/g, "")) : (selected.length > 1 ? "HTRI_Datasheets.zip" : "HTRI_Datasheet.xlsm");
       const blob = await response.blob();
       console.log("HTRI download blob", { filename, size: blob.size });
-      triggerDownload(blob, filename);
+      return { blob, filename };
+    }
+
+    async function downloadHtriViaServer(selected) {
+      const result = await convertHtriViaServer(selected);
+      triggerDownload(result.blob, result.filename);
+      return result;
+    }
+
+    function setHtriDownloadMode(mode) {
+      htriDownloadMode = mode;
+      htriDownloadDatasheetBtn.classList.toggle("active", mode === "datasheet");
+      htriDownloadZipBtn.classList.toggle("active", mode === "zip");
     }
 
     async function downloadHtriXlsx() {
@@ -2749,7 +2828,19 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       try {
         if (button) button.disabled = true;
         htriStatus.textContent = "Converting with Excel... please wait.";
-        await downloadHtriViaServer(selected);
+        if (htriDownloadMode === "datasheet") {
+          for (const entry of selected) await downloadHtriViaServer([entry]);
+        } else {
+          if (selected.length === 1) {
+            const result = await convertHtriViaServer(selected);
+            const zip = new JSZip();
+            zip.file(result.filename, result.blob);
+            const blob = await zip.generateAsync({ type: "blob" });
+            triggerDownload(blob, "HTRI_Datasheets.zip");
+          } else {
+            await downloadHtriViaServer(selected);
+          }
+        }
         renderHtriPreview();
         htriStatus.textContent = "HTRI XLSM conversion complete.";
       } catch (error) {
@@ -2779,6 +2870,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       renderFiles();
       refreshFieldSelect();
     });
+    document.getElementById("deleteSelectedBtn").addEventListener("click", deleteSelectedFiles);
     document.getElementById("applyTaskBtn").addEventListener("click", applyTaskFromForm);
     document.getElementById("editTaskBtn").addEventListener("click", editTask);
     document.getElementById("removeTaskBtn").addEventListener("click", removeTask);
@@ -2805,10 +2897,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       renderHtriFiles();
       refreshHtriFieldSelect();
     });
+    document.getElementById("htriDeleteSelectedBtn").addEventListener("click", deleteSelectedHtriFiles);
     document.getElementById("htriApplyTaskBtn").addEventListener("click", applyHtriTaskFromForm);
     document.getElementById("htriEditTaskBtn").addEventListener("click", editHtriTask);
     document.getElementById("htriRemoveTaskBtn").addEventListener("click", removeHtriTask);
     document.getElementById("htriPreviewBtn").addEventListener("click", renderHtriPreview);
+    document.getElementById("htriDownloadDatasheetBtn").addEventListener("click", () => setHtriDownloadMode("datasheet"));
+    document.getElementById("htriDownloadZipBtn").addEventListener("click", () => setHtriDownloadMode("zip"));
     document.getElementById("htriDownloadBtn").addEventListener("click", event => {
       event.preventDefault();
       downloadHtriXlsx();
