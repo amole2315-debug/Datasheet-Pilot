@@ -1,0 +1,2828 @@
+﻿<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Datasheet Correction</title>
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --panel: #ffffff;
+      --line: #d8dde6;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --accent: #2563eb;
+      --accent-dark: #1d4ed8;
+      --danger: #b91c1c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", "Malgun Gothic", Arial, sans-serif;
+      font-size: 13px;
+    }
+    body.dragging::after {
+      content: "Drop DOCX or XLS/XLSX files here";
+      position: fixed;
+      inset: 10px;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px dashed var(--accent);
+      border-radius: 8px;
+      background: rgba(219, 234, 254, .86);
+      color: var(--accent-dark);
+      font-size: 22px;
+      font-weight: 700;
+      pointer-events: none;
+    }
+    header {
+      height: 48px;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 650;
+    }
+    main {
+      height: calc(100vh - 90px);
+      display: grid;
+      grid-template-columns: minmax(520px, 1.4fr) minmax(360px, 0.8fr);
+      grid-template-rows: minmax(0, 1fr) 190px;
+      gap: 10px;
+      padding: 10px;
+    }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      flex-wrap: wrap;
+    }
+    button, .file-button, select, input, textarea {
+      height: 30px;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      background: #fff;
+      color: var(--text);
+      font: inherit;
+    }
+    button, .file-button {
+      padding: 0 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    button.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    button.primary:hover { background: var(--accent-dark); }
+    button:disabled {
+      cursor: not-allowed;
+      opacity: .55;
+    }
+    .file-button input {
+      display: none;
+    }
+    .status {
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 180px;
+      flex: 1;
+    }
+    .table-wrap {
+      height: calc(100% - 51px);
+      overflow: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    th, td {
+      height: 30px;
+      border-bottom: 1px solid #edf0f5;
+      padding: 5px 7px;
+      text-align: left;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    th {
+      position: sticky;
+      top: 0;
+      background: #f8fafc;
+      z-index: 1;
+      font-weight: 650;
+    }
+    th:nth-child(1), td:nth-child(1) { width: 42px; text-align: center; }
+    th:nth-child(2), td:nth-child(2) { width: 46px; text-align: center; }
+    th:nth-child(4), td:nth-child(4) { width: 72px; }
+    th:nth-child(5), td:nth-child(5) { width: 86px; }
+    th:nth-child(6), td:nth-child(6) { width: 190px; }
+    .side {
+      display: flex;
+      flex-direction: column;
+    }
+    .side-body {
+      padding: 12px;
+      overflow: auto;
+    }
+    .field-row {
+      display: grid;
+      grid-template-columns: 120px minmax(0, 1fr);
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .field-row input, .field-row select, .field-row textarea {
+      width: 100%;
+      padding: 0 8px;
+    }
+    .field-row textarea {
+      height: 58px;
+      padding-top: 6px;
+      resize: vertical;
+      line-height: 1.35;
+    }
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+    }
+    .check-row input {
+      width: 15px;
+      height: 15px;
+      padding: 0;
+    }
+    .group-title {
+      margin: 14px 0 7px;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-weight: 650;
+    }
+    .task-list {
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      height: 130px;
+      overflow: auto;
+      background: #fff;
+    }
+    .task-item {
+      padding: 7px 8px;
+      border-bottom: 1px solid #edf0f5;
+      cursor: pointer;
+    }
+    .task-item.selected {
+      background: #dbeafe;
+    }
+    tr.dragging-row {
+      opacity: .55;
+    }
+    tr.drop-target td {
+      border-top: 2px solid var(--accent);
+    }
+    .form-actions, .task-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .form-actions {
+      margin-bottom: 12px;
+    }
+    .preview {
+      grid-column: 1 / 3;
+      display: flex;
+      flex-direction: column;
+    }
+    .preview pre {
+      margin: 0;
+      padding: 10px;
+      overflow: auto;
+      flex: 1;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+      line-height: 1.35;
+      white-space: pre-wrap;
+    }
+    .tabbar {
+      height: 42px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+    }
+    .tab-page { display: none; }
+    .tab-page.active {
+      grid-column: 1 / 3;
+      grid-row: 1 / 3;
+      display: grid;
+      grid-template-columns: minmax(520px, 1.4fr) minmax(360px, 0.8fr);
+      grid-template-rows: minmax(0, 1fr) 190px;
+      gap: 10px;
+      min-width: 0;
+      min-height: 0;
+    }
+    .htri-note {
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    .error { color: var(--danger); }
+  </style>
+  <script src="xlsx.full.min.js"></script>
+  <script>window.XLSX || document.write('<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"><\/script>');</script>
+</head>
+<body>
+  <header>
+    <h1>Datasheet Correction</h1>
+  </header>
+  <div class="tabbar">
+    <button id="mpx2TabBtn" class="active">MPX2</button>
+    <button id="htriTabBtn">HTRI</button>
+  </div>
+  <main>
+    <div id="mpx2Page" class="tab-page active">
+    <section>
+      <div class="toolbar">
+        <label class="file-button">
+          Upload
+          <input id="uploadInput" type="file" accept=".docx" multiple>
+        </label>
+        <button id="selectAllBtn">All</button>
+        <button id="selectNoneBtn">None</button>
+        <span id="status" class="status">Select .docx files or drag them here.</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>use</th>
+              <th>no</th>
+              <th>name</th>
+              <th>kind</th>
+              <th>form</th>
+              <th>result</th>
+            </tr>
+          </thead>
+          <tbody id="fileRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="side">
+      <div class="toolbar">
+        <button id="downloadZipBtn" class="active">ZIP</button>
+        <button id="downloadFilesBtn">Files</button>
+        <button id="downloadBtn" class="primary">Download</button>
+      </div>
+      <div class="side-body">
+        <div class="field-row">
+          <label for="renameOutput">Rename files</label>
+          <label class="check-row">
+            <input id="renameOutput" type="checkbox">
+            Item No._result_form
+          </label>
+        </div>
+        <div class="field-row">
+          <label for="fieldSelect">Edit field</label>
+          <select id="fieldSelect"></select>
+        </div>
+        <div id="dynamicForm"></div>
+        <div class="form-actions">
+          <button id="applyTaskBtn" class="primary">Apply</button>
+        </div>
+        <div class="group-title">Task list</div>
+        <div id="taskList" class="task-list"></div>
+        <div class="task-actions">
+          <button id="previewBtn">Preview</button>
+          <button id="editTaskBtn">Edit</button>
+          <button id="removeTaskBtn">Remove</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="preview">
+      <div class="toolbar">
+        <strong>Preview</strong>
+        <span class="status">Only matched labels/cells are changed.</span>
+      </div>
+      <pre id="previewText"></pre>
+    </section>
+    </div>
+    <div id="htriPage" class="tab-page">
+      <section>
+        <div class="toolbar">
+          <label class="file-button">
+            HTRI Files
+            <input id="htriUploadInput" type="file" accept=".xls,.xlsx" multiple>
+          </label>
+          <label class="file-button">
+            BPHE Template
+            <input id="htriBpheTemplateInput" type="file" accept=".xlsm,.xlsx">
+          </label>
+          <label class="file-button">
+            GPHE Template
+            <input id="htriGpheTemplateInput" type="file" accept=".xlsm,.xlsx">
+          </label>
+          <button id="htriSelectAllBtn">All</button>
+          <button id="htriSelectNoneBtn">None</button>
+          <span id="htriStatus" class="status">Select HTRI .xls/.xlsx files and BPHE/GPHE .xlsm templates.</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>use</th>
+                <th>no</th>
+                <th>name</th>
+                <th>kind</th>
+                <th>form</th>
+                <th>result</th>
+              </tr>
+            </thead>
+            <tbody id="htriRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="side">
+        <div class="toolbar">
+          <button id="htriDownloadBtn" class="primary" type="button">Download XLSM</button>
+        </div>
+        <div class="side-body">
+          <div class="field-row">
+            <label for="htriFieldSelect">Edit field</label>
+            <select id="htriFieldSelect"></select>
+          </div>
+          <div id="htriDynamicForm"></div>
+          <div class="form-actions">
+            <button id="htriApplyTaskBtn" class="primary">Apply</button>
+          </div>
+          <div class="group-title">Task list</div>
+          <div id="htriTaskList" class="task-list"></div>
+          <div class="task-actions">
+            <button id="htriPreviewBtn">Preview</button>
+            <button id="htriEditTaskBtn">Edit</button>
+            <button id="htriRemoveTaskBtn">Remove</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="preview">
+        <div class="toolbar">
+          <strong>Preview</strong>
+          <span class="status">HTRI xls/xlsx values and edits.</span>
+        </div>
+        <pre id="htriPreviewText"></pre>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    class MiniZipEntry {
+      constructor(zip, meta) {
+        this.zip = zip;
+        this.name = meta.name;
+        this.method = meta.method || 0;
+        this.compressed = meta.compressed || null;
+        this.uncompressed = meta.uncompressed || null;
+        this.data = meta.data || null;
+      }
+
+      async bytes() {
+        if (this.data) return toUint8Array(await resolveData(this.data));
+        if (this.method === 0) return this.compressed;
+        if (this.method === 8) return await inflateRaw(this.compressed);
+        throw new Error(`Unsupported ZIP method ${this.method}`);
+      }
+
+      async async(type) {
+        const data = await this.bytes();
+        if (type === "text") return new TextDecoder("utf-8").decode(data);
+        if (type === "arraybuffer") return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+        if (type === "uint8array") return data;
+        if (type === "blob") return new Blob([data]);
+        return data;
+      }
+    }
+
+    class MiniZip {
+      constructor() {
+        this.files = {};
+      }
+
+      static async loadAsync(buffer) {
+        const zip = new MiniZip();
+        const data = new Uint8Array(buffer);
+        const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+        const eocd = findEndOfCentralDirectory(view);
+        const total = view.getUint16(eocd + 10, true);
+        let offset = view.getUint32(eocd + 16, true);
+        const decoder = new TextDecoder("utf-8");
+        for (let i = 0; i < total; i += 1) {
+          if (view.getUint32(offset, true) !== 0x02014b50) throw new Error("Invalid ZIP central directory");
+          const method = view.getUint16(offset + 10, true);
+          const compressedSize = view.getUint32(offset + 20, true);
+          const fileNameLength = view.getUint16(offset + 28, true);
+          const extraLength = view.getUint16(offset + 30, true);
+          const commentLength = view.getUint16(offset + 32, true);
+          const localOffset = view.getUint32(offset + 42, true);
+          const nameBytes = data.slice(offset + 46, offset + 46 + fileNameLength);
+          const name = decoder.decode(nameBytes);
+          if (view.getUint32(localOffset, true) !== 0x04034b50) throw new Error("Invalid ZIP local header");
+          const localNameLength = view.getUint16(localOffset + 26, true);
+          const localExtraLength = view.getUint16(localOffset + 28, true);
+          const dataStart = localOffset + 30 + localNameLength + localExtraLength;
+          const compressed = data.slice(dataStart, dataStart + compressedSize);
+          zip.files[name] = new MiniZipEntry(zip, { name, method, compressed });
+          offset += 46 + fileNameLength + extraLength + commentLength;
+        }
+        return zip;
+      }
+
+      file(name, data) {
+        if (data === undefined) return this.files[name] || null;
+        this.files[name] = new MiniZipEntry(this, { name, method: 0, data });
+        return this;
+      }
+
+      async generateAsync(options = {}) {
+        const encoder = new TextEncoder();
+        const localParts = [];
+        const centralParts = [];
+        let offset = 0;
+        const entries = Object.values(this.files);
+        for (const entry of entries) {
+          const nameBytes = encoder.encode(entry.name);
+          const data = await entry.bytes();
+          const crc = crc32(data);
+          const local = new Uint8Array(30 + nameBytes.length);
+          const lv = new DataView(local.buffer);
+          lv.setUint32(0, 0x04034b50, true);
+          lv.setUint16(4, 20, true);
+          lv.setUint16(6, 0, true);
+          lv.setUint16(8, 0, true);
+          lv.setUint16(10, 0, true);
+          lv.setUint16(12, 0, true);
+          lv.setUint32(14, crc, true);
+          lv.setUint32(18, data.length, true);
+          lv.setUint32(22, data.length, true);
+          lv.setUint16(26, nameBytes.length, true);
+          lv.setUint16(28, 0, true);
+          local.set(nameBytes, 30);
+          localParts.push(local, data);
+
+          const central = new Uint8Array(46 + nameBytes.length);
+          const cv = new DataView(central.buffer);
+          cv.setUint32(0, 0x02014b50, true);
+          cv.setUint16(4, 20, true);
+          cv.setUint16(6, 20, true);
+          cv.setUint16(8, 0, true);
+          cv.setUint16(10, 0, true);
+          cv.setUint16(12, 0, true);
+          cv.setUint16(14, 0, true);
+          cv.setUint32(16, crc, true);
+          cv.setUint32(20, data.length, true);
+          cv.setUint32(24, data.length, true);
+          cv.setUint16(28, nameBytes.length, true);
+          cv.setUint16(30, 0, true);
+          cv.setUint16(32, 0, true);
+          cv.setUint16(34, 0, true);
+          cv.setUint16(36, 0, true);
+          cv.setUint32(38, 0, true);
+          cv.setUint32(42, offset, true);
+          central.set(nameBytes, 46);
+          centralParts.push(central);
+          offset += local.length + data.length;
+        }
+        const centralOffset = offset;
+        const centralSize = centralParts.reduce((sum, part) => sum + part.length, 0);
+        const eocd = new Uint8Array(22);
+        const ev = new DataView(eocd.buffer);
+        ev.setUint32(0, 0x06054b50, true);
+        ev.setUint16(4, 0, true);
+        ev.setUint16(6, 0, true);
+        ev.setUint16(8, entries.length, true);
+        ev.setUint16(10, entries.length, true);
+        ev.setUint32(12, centralSize, true);
+        ev.setUint32(16, centralOffset, true);
+        ev.setUint16(20, 0, true);
+        const blob = new Blob([...localParts, ...centralParts, eocd], { type: "application/zip" });
+        if (options.type === "blob" || !options.type) return blob;
+        if (options.type === "arraybuffer") return await blob.arrayBuffer();
+        return blob;
+      }
+    }
+
+    async function resolveData(data) {
+      if (data instanceof Blob) return await data.arrayBuffer();
+      if (data instanceof ArrayBuffer) return data;
+      if (ArrayBuffer.isView(data)) return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+      return new TextEncoder().encode(String(data)).buffer;
+    }
+
+    function toUint8Array(data) {
+      if (data instanceof Uint8Array) return data;
+      return new Uint8Array(data);
+    }
+
+    function findEndOfCentralDirectory(view) {
+      const min = Math.max(0, view.byteLength - 65557);
+      for (let i = view.byteLength - 22; i >= min; i -= 1) {
+        if (view.getUint32(i, true) === 0x06054b50) return i;
+      }
+      throw new Error("Invalid ZIP file");
+    }
+
+    async function inflateRaw(data) {
+      if (!("DecompressionStream" in window)) {
+        throw new Error("This browser cannot decompress DOCX files. Use recent Chrome or Edge.");
+      }
+      const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+    }
+
+    const CRC_TABLE = (() => {
+      const table = new Uint32Array(256);
+      for (let i = 0; i < 256; i += 1) {
+        let c = i;
+        for (let j = 0; j < 8; j += 1) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+        table[i] = c >>> 0;
+      }
+      return table;
+    })();
+
+    function crc32(data) {
+      let crc = 0xffffffff;
+      for (let i = 0; i < data.length; i += 1) {
+        crc = CRC_TABLE[(crc ^ data[i]) & 0xff] ^ (crc >>> 8);
+      }
+      return (crc ^ 0xffffffff) >>> 0;
+    }
+
+    window.JSZip = MiniZip;
+
+    const FIELD_GROUPS = {
+      "Basic": [
+        "Customer", "Project Name", "Contact", "Service", "Item No.",
+        "Datasheet No.", "Date", "Designed by"
+      ],
+      "Duty Requirements": [
+        "Media", "Heat capacity", "Temperature inlet", "Temperature outlet",
+        "Mass flow rate", "Volume flowrate", "Operating Pressure", "Pressure drop"
+      ],
+      "Unit Data": [
+        "Design Temperature", "Design / Test Pressure", "Connection Type",
+        "Soldering Material", "O.H.T.C", "Heat transfer area", "Number of plates", "Surface margin"
+      ],
+      "Product Properties": [
+        "Density (Liquid)", "Specific heat capacity (Liquid)",
+        "Thermal conductivity (Liquid)", "Viscosity (Liquid)", "Latent heat"
+      ]
+    };
+
+    const FIELD_AVAILABILITY = {
+      "Soldering Material": ["BPHE"]
+    };
+    const ALL_FIELD_NAMES = Object.values(FIELD_GROUPS).flat();
+    const NO_UNIT_TARGET = "No matching unit found";
+    const GPHE_MODELS = [
+      "ZS025", "KC12", "M65S", "M70M", "M75T", "M80S", "M100T", "M100M",
+      "M100X", "M110SW", "M150S", "M150M", "M200T", "M250S", "M250L",
+      "MX250L", "M300T", "M350S", "M500T"
+    ];
+    const BPHE_MODELS = [
+      "MC10", "MC20", "MC30", "MC60", "MC70", "MC80",
+      "MS10", "MS20", "MS30", "MS60", "MS70", "MS80",
+      "MA40", "MA60"
+    ];
+    const HEAT_CAPACITY_UNITS = [
+      { unit: "kcal/h", from: ["kcal/h", "kcal/hr"] },
+      { unit: "kW", from: ["kW"] },
+      { unit: "W", from: ["W"] },
+      { unit: "J/s", from: ["J/s", "J"] },
+      { unit: "Btu/h", from: ["Btu/h", "Btu/hr", "BTU/h", "BTU/hr", "Btu"] },
+      { unit: "kJ/s", from: ["kJ/s", "kJ"] }
+    ];
+    const PRESSURE_UNITS = [
+      { unit: "Pa_G", from: ["Pa_G", "PaG", "Pa G"] },
+      { unit: "kPa_G", from: ["kPa_G", "kPaG", "kPa G"] },
+      { unit: "MPa_G", from: ["MPa_G", "MPaG", "MPa G"] },
+      { unit: "bar_G", from: ["bar_G", "barG", "barg", "bar G"] },
+      { unit: "kgf_cm2_G", from: ["kgf_cm2_G", "kgf/cm2_G", "kgf/cm²_G", "kgf/cm2G", "kg/cm2_G"] },
+      { unit: "atm_G", from: ["atm_G", "atmG", "atm G"] },
+      { unit: "psi_G", from: ["psi_G", "psiG", "psig", "psi G"] },
+      { unit: "torr_G", from: ["torr_G", "torrG", "torr G"] },
+      { unit: "Pa_A", from: ["Pa_A", "PaA", "Pa A"] },
+      { unit: "kPa_A", from: ["kPa_A", "kPaA", "kPa A"] },
+      { unit: "MPa_A", from: ["MPa_A", "MPaA", "MPa A"] },
+      { unit: "bar_A", from: ["bar_A", "barA", "bara", "bar A"] },
+      { unit: "kgf_cm2_A", from: ["kgf_cm2_A", "kgf/cm2_A", "kgf/cm²_A", "kgf/cm2A", "kg/cm2_A"] },
+      { unit: "atm_A", from: ["atm_A", "atmA", "atm A"] },
+      { unit: "psi_A", from: ["psi_A", "psiA", "psia", "psi A"] },
+      { unit: "torr_A", from: ["torr_A", "torrA", "torr A"] }
+    ];
+    const PRESSURE_DROP_UNITS = [
+      { unit: "Pa", from: ["Pa"] },
+      { unit: "kPa", from: ["kPa"] },
+      { unit: "MPa", from: ["MPa"] },
+      { unit: "bar", from: ["bar"] },
+      { unit: "kgf/cm²", from: ["kgf/cm²", "kgf/cm2", "kgf_cm2", "kg/cm²", "kg/cm2"] },
+      { unit: "atm", from: ["atm"] },
+      { unit: "psi", from: ["psi"] },
+      { unit: "torr", from: ["torr"] }
+    ];
+    const MASS_FLOW_UNITS = [
+      { unit: "kg/s", from: ["kg/s"] },
+      { unit: "kg/min", from: ["kg/min"] },
+      { unit: "kg/h", from: ["kg/h", "kg/hr"] },
+      { unit: "lb/s", from: ["lb/s", "lbs/s"] },
+      { unit: "lb/min", from: ["lb/min", "lbs/min"] },
+      { unit: "lb/h", from: ["lb/h", "lb/hr", "lbs/h", "lbs/hr"] }
+    ];
+    const VOLUME_FLOW_UNITS = [
+      { unit: "m³/s", from: ["m³/s", "m3/s"] },
+      { unit: "m³/min", from: ["m³/min", "m3/min"] },
+      { unit: "m³/h", from: ["m³/h", "m3/h", "m³/hr", "m3/hr"] },
+      { unit: "L/s", from: ["L/s", "l/s"] },
+      { unit: "L/min", from: ["L/min", "l/min"] },
+      { unit: "L/h", from: ["L/h", "l/h", "L/hr", "l/hr"] },
+      { unit: "gal/s", from: ["gal/s", "gallon/s", "gallons/s"] },
+      { unit: "gal/min", from: ["gal/min", "gallon/min", "gallons/min", "gpm"] },
+      { unit: "gal/h", from: ["gal/h", "gal/hr", "gallon/h", "gallons/h"] }
+    ];
+    const OHTC_UNITS = [
+      { unit: "kcal/(m2*h*K)", from: ["kcal/(m2*h*K)", "kcal/(m²*h*K)", "kcal/(m2.h.K)", "kcal/(m²·h·K)"] },
+      { unit: "W/(m2*K)", from: ["W/(m2*K)", "W/(m²*K)", "W/(m2.K)", "W/(m²·K)"] }
+    ];
+    const SPECIFIC_HEAT_UNITS = [
+      { unit: "kcal/(kg*K)", from: ["kcal/(kg*K)", "kcal/(kg·K)", "kcal/kg/K"] },
+      { unit: "kJ/(kg*K)", from: ["kJ/(kg*K)", "kJ/(kg·K)", "kJ/kg/K"] }
+    ];
+    const THERMAL_CONDUCTIVITY_UNITS = [
+      { unit: "kcal/(m*h*K)", from: ["kcal/(m*h*K)", "kcal/(m·h·K)", "kcal/(m.K.h)"] },
+      { unit: "W/(m*K)", from: ["W/(m*K)", "W/(m·K)", "W/(m.K)"] }
+    ];
+    const LATENT_HEAT_UNITS = [
+      { unit: "kcal/kg", from: ["kcal/kg"] },
+      { unit: "kJ/kg", from: ["kJ/kg"] }
+    ];
+    const UNIT_RULE_CANDIDATES = {
+      "Heat capacity": heatCapacityRules(),
+      "Mass flow rate": unitRules(MASS_FLOW_UNITS),
+      "Volume flowrate": unitRules(VOLUME_FLOW_UNITS),
+      "O.H.T.C": unitRules(OHTC_UNITS, true),
+      "Specific heat capacity (Liquid)": unitRules(SPECIFIC_HEAT_UNITS, true),
+      "Thermal conductivity (Liquid)": unitRules(THERMAL_CONDUCTIVITY_UNITS, true),
+      "Latent heat": unitRules(LATENT_HEAT_UNITS, true),
+      "Operating Pressure": pressureRules(),
+      "Pressure drop": unitRules(PRESSURE_DROP_UNITS),
+      "Design / Test Pressure": pressureRules()
+    };
+
+    const files = [];
+    const tasks = [];
+    let selectedTaskIndex = -1;
+    let editingTaskIndex = -1;
+    let downloadMode = "zip";
+    let isReorderingFiles = false;
+
+    const fileRows = document.getElementById("fileRows");
+    const statusEl = document.getElementById("status");
+    const fieldSelect = document.getElementById("fieldSelect");
+    const dynamicForm = document.getElementById("dynamicForm");
+    const taskList = document.getElementById("taskList");
+    const previewText = document.getElementById("previewText");
+    const renameOutput = document.getElementById("renameOutput");
+    const applyTaskBtn = document.getElementById("applyTaskBtn");
+    const downloadZipBtn = document.getElementById("downloadZipBtn");
+    const downloadFilesBtn = document.getElementById("downloadFilesBtn");
+
+    function normalize(text) {
+      return String(text || "").replace(/\s+/g, " ").trim();
+    }
+
+    function heatCapacityRules() {
+      return unitRules(HEAT_CAPACITY_UNITS);
+    }
+
+    function unitRules(units, includeSame = false) {
+      const rules = [];
+      units.forEach(source => {
+        units.forEach(target => {
+          if (includeSame || source.unit !== target.unit) rules.push({ from: source.from, rule: `${source.unit} -> ${target.unit}` });
+        });
+      });
+      return rules;
+    }
+
+    function pressureRules() {
+      const rules = [];
+      PRESSURE_UNITS.forEach(source => {
+        PRESSURE_UNITS.forEach(target => {
+          if (source.unit !== target.unit) rules.push({ from: source.from, rule: `${source.unit} -> ${target.unit}` });
+        });
+      });
+      return rules;
+    }
+
+    function cleanLabel(text) {
+      return normalize(text).replace(/\s+:/g, "").replace(/:/g, "").toLowerCase();
+    }
+
+    function rowLabelMatches(text, target) {
+      const label = cleanLabel(text);
+      const want = cleanLabel(target);
+      return label === want || label.includes(want);
+    }
+
+    function canonicalUnit(text) {
+      return String(text || "")
+        .replace(/²/g, "2")
+        .replace(/³/g, "3")
+        .replace(/㎡/g, "m2")
+        .replace(/㎥/g, "m3")
+        .replace(/[·ㆍ∙]/g, "*")
+        .replace(/hr/gi, "h")
+        .replace(/_/g, "")
+        .replace(/\s+/g, "")
+        .toLowerCase();
+    }
+
+    function unitMatches(unit, aliases) {
+      const actual = canonicalUnit(unit);
+      return aliases.some(alias => actual === canonicalUnit(alias));
+    }
+
+    function sourceUnit(rule) {
+      return String(rule || "").split(" -> ")[0] || "";
+    }
+
+    function targetUnit(rule) {
+      return String(rule || "").split(" -> ")[1] || "";
+    }
+
+    function availableUnitTargetsForField(field) {
+      const candidates = UNIT_RULE_CANDIDATES[field] || [];
+      if (!candidates.length) return [];
+      const scopedFiles = files.filter(file => file.selected);
+      const sourceFiles = scopedFiles.length ? scopedFiles : files;
+      const targets = new Set();
+      sourceFiles.forEach(file => {
+        const units = file.units && file.units[field] ? file.units[field] : [];
+        units.forEach(unit => {
+          candidates.forEach(candidate => {
+            if (unitMatches(unit, candidate.from)) targets.add(targetUnit(candidate.rule));
+          });
+        });
+      });
+      return [...targets];
+    }
+
+    function findConversionRule(field, fromUnit, toUnit) {
+      if (canonicalUnit(fromUnit) === canonicalUnit(toUnit)) return "";
+      const candidates = UNIT_RULE_CANDIDATES[field] || [];
+      const match = candidates.find(candidate => {
+        return unitMatches(fromUnit, candidate.from) && canonicalUnit(targetUnit(candidate.rule)) === canonicalUnit(toUnit);
+      });
+      return match ? match.rule : "";
+    }
+
+    function fileDisplayName(file) {
+      return file.webkitRelativePath || file.name;
+    }
+
+    async function loadFiles(fileList) {
+      const docs = [...fileList].filter(file => file.name.toLowerCase().endsWith(".docx") && !file.name.startsWith("~$"));
+      const existingNames = new Set(files.map(item => item.name));
+      const newDocs = docs.filter(file => !existingNames.has(fileDisplayName(file)));
+      const skipped = docs.length - newDocs.length;
+      if (!newDocs.length) {
+        statusEl.textContent = skipped ? `Skipped ${skipped} duplicate file(s).` : "No .docx files were selected.";
+        if (!files.length) previewText.textContent = "No .docx files were selected.";
+        return;
+      }
+      previewText.textContent = "";
+      statusEl.textContent = `Reading ${newDocs.length} Word file(s)...`;
+      for (const file of newDocs) {
+        const item = {
+          file,
+          name: fileDisplayName(file),
+          selected: true,
+          kind: "",
+          form: "",
+          result: "",
+          units: {}
+        };
+        inferFromName(item);
+        try {
+          const editor = await DocxEditor.fromFile(item);
+          item.result = await editor.scanSummary() || "summary not found";
+          item.units = await editor.scanUnits(ALL_FIELD_NAMES);
+          const classification = await editor.scanClassification();
+          item.kind = classification.kind || item.kind;
+          item.form = classification.form || item.form;
+        } catch (error) {
+          item.result = readableError(error);
+        }
+        files.push(item);
+      }
+      renderFiles();
+      refreshFieldSelect();
+      renderTasks();
+      statusEl.textContent = `Loaded ${files.length} Word file(s).${skipped ? ` Skipped ${skipped} duplicate(s).` : ""}`;
+      if (!files.length) previewText.textContent = "No .docx files were selected.";
+    }
+
+    function readableError(error) {
+      const name = error && error.name ? error.name : "Error";
+      if (name === "SecurityError" || name === "NotAllowedError") return "permission denied";
+      if (name === "InvalidStateError") return "file unavailable";
+      return `read error: ${name}`;
+    }
+
+    function inferFromName(item) {
+      const lower = item.name.toLowerCase();
+      item.kind = lower.includes("gphe") ? "GPHE" : lower.includes("bphe") ? "BPHE" : classifyModel(modelFromText(item.name));
+      item.form = lower.includes("simple") ? "simple" : lower.includes("standard") ? "standard" : lower.includes("internal") ? "internal" : "";
+    }
+
+    function renderFiles() {
+      fileRows.innerHTML = "";
+      files.forEach((item, index) => {
+        const tr = document.createElement("tr");
+        tr.draggable = true;
+        tr.dataset.index = String(index);
+        tr.innerHTML = `
+          <td><input type="checkbox" ${item.selected ? "checked" : ""}></td>
+          <td>${index + 1}</td>
+          <td title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</td>
+          <td>${escapeHtml(item.kind)}</td>
+          <td>${escapeHtml(item.form)}</td>
+          <td class="${item.result.startsWith("read error") || item.result.includes("denied") ? "error" : ""}" title="${escapeHtml(item.result)}">${escapeHtml(item.result)}</td>
+        `;
+        tr.querySelector("input").addEventListener("change", event => {
+          item.selected = event.target.checked;
+          refreshFieldSelect();
+        });
+        tr.addEventListener("dragstart", event => {
+          isReorderingFiles = true;
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", String(index));
+          tr.classList.add("dragging-row");
+        });
+        tr.addEventListener("dragend", () => {
+          isReorderingFiles = false;
+          tr.classList.remove("dragging-row");
+          document.body.classList.remove("dragging");
+          fileRows.querySelectorAll(".drop-target").forEach(row => row.classList.remove("drop-target"));
+        });
+        tr.addEventListener("dragover", event => {
+          event.preventDefault();
+          event.stopPropagation();
+          fileRows.querySelectorAll(".drop-target").forEach(row => row.classList.remove("drop-target"));
+          tr.classList.add("drop-target");
+        });
+        tr.addEventListener("drop", event => {
+          event.preventDefault();
+          event.stopPropagation();
+          isReorderingFiles = false;
+          document.body.classList.remove("dragging");
+          const fromIndex = Number(event.dataTransfer.getData("text/plain"));
+          reorderFiles(fromIndex, index);
+        });
+        fileRows.appendChild(tr);
+      });
+    }
+
+    function reorderFiles(fromIndex, toIndex) {
+      if (!Number.isInteger(fromIndex) || !Number.isInteger(toIndex) || fromIndex === toIndex) return;
+      if (fromIndex < 0 || fromIndex >= files.length || toIndex < 0 || toIndex >= files.length) return;
+      const before = [...files];
+      const [moved] = files.splice(fromIndex, 1);
+      files.splice(toIndex, 0, moved);
+      remapTaskTargetsAfterReorder(before);
+      renderFiles();
+      renderTasks();
+      refreshFieldSelect();
+    }
+
+    function remapTaskTargetsAfterReorder(previousFiles) {
+      tasks.forEach(task => {
+        const targetItems = (task.targets || [])
+          .map(index => previousFiles[index])
+          .filter(Boolean);
+        task.targets = targetItems
+          .map(item => files.indexOf(item))
+          .filter(index => index >= 0);
+        task.targetNames = task.targets.map(index => files[index].name);
+        task.targetNumbers = task.targets.map(index => index + 1);
+      });
+    }
+
+    function escapeHtml(text) {
+      return String(text || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function selectedKinds(items) {
+      const selected = items.filter(item => item.selected !== false);
+      const source = selected.length ? selected : items;
+      return new Set(source.map(item => item.kind).filter(Boolean));
+    }
+
+    function fieldAllowedForKinds(field, kinds, availability) {
+      const allowedKinds = availability[field];
+      if (!allowedKinds) return true;
+      if (!kinds.size) return true;
+      return allowedKinds.some(kind => kinds.has(kind));
+    }
+
+    function renderGroupedFieldSelect(select, groups, kinds, availability, previousValue) {
+      select.innerHTML = "";
+      Object.entries(groups).forEach(([group, names]) => {
+        const visible = names.filter(name => fieldAllowedForKinds(name, kinds, availability));
+        if (!visible.length) return;
+        const optgroup = document.createElement("optgroup");
+        optgroup.label = group;
+        visible.forEach(name => {
+          const option = document.createElement("option");
+          option.value = name;
+          option.textContent = name;
+          optgroup.appendChild(option);
+        });
+        select.appendChild(optgroup);
+      });
+      if (previousValue && [...select.options].some(option => option.value === previousValue)) {
+        select.value = previousValue;
+      }
+    }
+
+    function refreshFieldSelect() {
+      const previous = fieldSelect.value;
+      renderGroupedFieldSelect(fieldSelect, FIELD_GROUPS, selectedKinds(files), FIELD_AVAILABILITY, previous);
+      renderDynamicForm();
+    }
+
+    function initFieldSelect() {
+      fieldSelect.addEventListener("change", () => renderDynamicForm());
+      refreshFieldSelect();
+    }
+    function inputRow(label, key, value = "") {
+      const singleLine = key === "unit";
+      const control = singleLine
+        ? `<input id="${key}" data-key="${key}" value="${escapeHtml(value)}">`
+        : `<textarea id="${key}" data-key="${key}">${escapeHtml(value)}</textarea>`;
+      return `
+        <div class="field-row">
+          <label for="${key}">${label}</label>
+          ${control}
+        </div>
+      `;
+    }
+
+    function selectRow(label, key, values) {
+      return `
+        <div class="field-row">
+          <label for="${key}">${label}</label>
+          <select id="${key}" data-key="${key}">
+            ${values.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("")}
+          </select>
+        </div>
+      `;
+    }
+
+    function renderDynamicForm(modeOverride) {
+      const field = fieldSelect.value;
+      const unitTargets = availableUnitTargetsForField(field);
+      const canConvert = (UNIT_RULE_CANDIDATES[field] || []).length > 0;
+      const modeValue = modeOverride || "Set value";
+      let html = "";
+      if (canConvert) {
+        html += selectRow("Mode", "mode", ["Set value", "Convert unit"]);
+      }
+      dynamicForm.innerHTML = html + formHtmlForField(field, modeValue, unitTargets);
+      const mode = dynamicForm.querySelector("[data-key='mode']");
+      if (mode) {
+        mode.value = modeValue;
+        mode.addEventListener("change", () => {
+          renderDynamicForm(mode.value);
+        });
+      }
+    }
+
+    function currentModeLabel() {
+      const mode = dynamicForm.querySelector("[data-key='mode']");
+      return mode ? mode.value : undefined;
+    }
+
+    function formHtmlForField(field, mode, unitTargets = []) {
+      if (mode === "Convert unit") {
+        return selectRow("Target unit", "unitTarget", unitTargets.length ? unitTargets : [NO_UNIT_TARGET]);
+      }
+      if (["Media", "Connection Type", "Temperature inlet", "Temperature outlet", "Mass flow rate", "Volume flowrate", "Operating Pressure", "Pressure drop"].includes(field)) {
+        let html = inputRow("Hot Side", "hot") + inputRow("Cold Side", "cold");
+        if (!["Media", "Connection Type"].includes(field)) html += inputRow("Unit", "unit");
+        return html;
+      }
+      if (field === "Design / Test Pressure") {
+        return inputRow("Design / Test", "value", "6.0 / 7.5") + inputRow("Unit", "unit", "bar");
+      }
+      if (field === "Design Temperature") {
+        return inputRow("Value", "value", "130") + inputRow("Unit", "unit", "°C");
+      }
+      if (["Customer", "Project Name", "Contact", "Service", "Item No.", "Datasheet No.", "Date", "Designed by"].includes(field)) {
+        const today = new Date().toISOString().slice(0, 10);
+        return inputRow("Value", "value", field === "Date" ? today : "");
+      }
+      if (field === "Soldering Material") {
+        return selectRow("Material", "value", ["SUS", "Copper"]);
+      }
+      return inputRow("Value", "value") + inputRow("Unit", "unit");
+    }
+
+    function collectFormValues() {
+      const task = { field: fieldSelect.value, mode: "set" };
+      dynamicForm.querySelectorAll("[data-key]").forEach(input => {
+        const key = input.dataset.key;
+        if (key === "mode") {
+          task.mode = input.value === "Convert unit" ? "convert" : "set";
+        } else if (key === "unitTarget") {
+          task.unitTarget = input.value;
+        } else {
+          task[key] = input.value;
+        }
+      });
+      return task;
+    }
+
+    function applyTaskFromForm() {
+      const targets = files
+        .map((file, index) => file.selected ? index : -1)
+        .filter(index => index >= 0);
+      if (!targets.length) {
+        alert("Select at least one file for this task.");
+        return;
+      }
+      const task = collectFormValues();
+      if (task.mode === "convert" && (!task.unitTarget || task.unitTarget === NO_UNIT_TARGET)) {
+        alert("Selected file(s) do not have a matching unit for this field.");
+        return;
+      }
+      task.targets = targets;
+      task.targetNames = targets.map(index => files[index].name);
+      task.targetNumbers = targets.map(index => index + 1);
+      if (editingTaskIndex >= 0 && tasks[editingTaskIndex]) {
+        tasks[editingTaskIndex] = task;
+        selectedTaskIndex = editingTaskIndex;
+        editingTaskIndex = -1;
+      } else {
+        tasks.push(task);
+        selectedTaskIndex = tasks.length - 1;
+      }
+      renderTasks();
+      updateApplyButton();
+    }
+
+    function removeTask() {
+      if (selectedTaskIndex < 0) return;
+      tasks.splice(selectedTaskIndex, 1);
+      selectedTaskIndex = -1;
+      editingTaskIndex = -1;
+      renderTasks();
+      updateApplyButton();
+    }
+
+    function editTask() {
+      if (selectedTaskIndex < 0 || !tasks[selectedTaskIndex]) {
+        alert("Select a task to edit.");
+        return;
+      }
+      const task = tasks[selectedTaskIndex];
+      editingTaskIndex = selectedTaskIndex;
+      files.forEach((file, index) => {
+        file.selected = task.targets && task.targets.includes(index);
+      });
+      renderFiles();
+      fieldSelect.value = task.field;
+      renderDynamicForm(task.mode === "convert" ? "Convert unit" : "Set value");
+      setFormValues(task);
+      updateApplyButton();
+    }
+
+    function setFormValues(task) {
+      dynamicForm.querySelectorAll("[data-key]").forEach(input => {
+        const key = input.dataset.key;
+        if (key === "mode") {
+          input.value = task.mode === "convert" ? "Convert unit" : "Set value";
+        } else if (key === "unitTarget") {
+          ensureOption(input, task.unitTarget || "");
+          input.value = task.unitTarget || "";
+        } else if (Object.prototype.hasOwnProperty.call(task, key)) {
+          input.value = task[key] || "";
+        }
+      });
+    }
+
+    function ensureOption(select, value) {
+      if (!value || [...select.options].some(option => option.value === value)) return;
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = value;
+      select.appendChild(option);
+    }
+
+    function updateApplyButton() {
+      applyTaskBtn.textContent = editingTaskIndex >= 0 ? "Update" : "Apply";
+    }
+
+    function taskLabel(task) {
+      const targetNumbers = task.targetNumbers || (task.targets || []).map(index => index + 1);
+      const scope = targetNumbers.length
+        ? ` (#${targetNumbers.join(", #")})`
+        : "";
+      if (task.mode === "convert") return `${task.field}: target ${task.unitTarget}${scope}`;
+      const parts = [task.field];
+      ["value", "hot", "cold", "unit"].forEach(key => {
+        if (task[key]) parts.push(`${key}=${task[key]}`);
+      });
+      return parts.join(" | ") + scope;
+    }
+
+    function renderTasks() {
+      taskList.innerHTML = "";
+      tasks.forEach((task, index) => {
+        const div = document.createElement("div");
+        div.className = `task-item ${index === selectedTaskIndex ? "selected" : ""}`;
+        div.textContent = taskLabel(task);
+        div.addEventListener("click", () => {
+          selectedTaskIndex = index;
+          renderTasks();
+        });
+        taskList.appendChild(div);
+      });
+    }
+
+    class DocxEditor {
+      constructor(item, zip) {
+        this.item = item;
+        this.zip = zip;
+        this.changes = [];
+      }
+
+      static async fromFile(item) {
+        const buffer = await item.file.arrayBuffer();
+        const zip = await JSZip.loadAsync(buffer);
+        return new DocxEditor(item, zip);
+      }
+
+      xmlPartNames() {
+        return Object.keys(this.zip.files).filter(name => /^word\/(document|header|footer|footnotes|endnotes).*\.xml$/.test(name));
+      }
+
+      isBpheItem() {
+        const text = `${this.item.kind || ""} ${this.item.name || ""} ${this.item.result || ""}`;
+        return /\bBPHE\b/i.test(text) || classifyModel(modelFromText(text)) === "BPHE";
+      }
+
+      async readXml(name) {
+        const text = await this.zip.file(name).async("text");
+        return new DOMParser().parseFromString(text, "application/xml");
+      }
+
+      writeXml(name, doc) {
+        const text = new XMLSerializer().serializeToString(doc);
+        this.zip.file(name, text);
+      }
+
+      async allText() {
+        const chunks = [];
+        for (const name of this.xmlPartNames()) {
+          const doc = await this.readXml(name);
+          chunks.push([...doc.getElementsByTagNameNS("*", "t")].map(node => node.textContent || "").join(" "));
+        }
+        return normalize(chunks.join(" "));
+      }
+
+      async scanSummary() {
+        const text = await this.allText();
+        const match = text.match(/MG PHE Result\s*:\s*([^\n\r]+?)(?:Series|Section|1\.)/);
+        return match ? normalize(match[1]) : "";
+      }
+
+      async scanClassification() {
+        const text = await this.allText();
+        const summary = await this.scanSummary();
+        const priorityText = `${summary} ${this.item.name || ""}`;
+        const priorityModel = modelFromText(priorityText);
+        const fallbackModel = modelFromText(text);
+        return {
+          kind: classifyModel(priorityModel) || classifyModel(fallbackModel),
+          form: classifySheetForm(text) || classifySheetForm(this.item.name)
+        };
+      }
+
+      async scanUnits(fields) {
+        const found = {};
+        for (const name of this.xmlPartNames()) {
+          const doc = await this.readXml(name);
+          for (const field of fields) {
+            const label = field === "Design Temperature" ? "Design temperature" : field;
+            for (const cells of this.findRows(doc, label)) {
+              if (cells.length < 3) continue;
+              const unit = normalize(this.cellText(cells[cells.length - 1]));
+              if (!unit) continue;
+              if (!found[field]) found[field] = [];
+              if (!found[field].includes(unit)) found[field].push(unit);
+            }
+          }
+        }
+        return found;
+      }
+
+      async filenameInfo() {
+        const info = {
+          itemNo: "",
+          result: "",
+          plates: ""
+        };
+        info.result = modelFromText(await this.scanSummary());
+        for (const name of this.xmlPartNames()) {
+          const doc = await this.readXml(name);
+          info.itemNo = info.itemNo || this.nextCellValue(doc, "Item No.");
+          info.plates = info.plates || this.rowValue(doc, "Number of plates");
+          if (info.itemNo && info.plates) break;
+        }
+        return info;
+      }
+
+      async applyTask(task) {
+        const before = this.changes.length;
+        for (const name of this.xmlPartNames()) {
+          const doc = await this.readXml(name);
+          const changed = this.applyTaskToDoc(doc, task);
+          if (changed) this.writeXml(name, doc);
+        }
+        return this.changes.slice(before);
+      }
+
+      applyTaskToDoc(doc, task) {
+        const field = task.field;
+        if (["Customer", "Project Name", "Contact", "Service", "Item No.", "Date"].includes(field)) {
+          return this.setHeaderPair(doc, field, task.value || "");
+        }
+        if (field === "Datasheet No.") {
+          return this.replaceInCells(doc, /(Datasheet No\.\s*:\s*).*/g, `$1${task.value || ""}`, field);
+        }
+        if (field === "Designed by") {
+          return this.replaceInTextNodes(doc, /(-?\s*Designed by\s+).*/g, `$1${task.value || ""}`, field);
+        }
+        if (field === "Soldering Material") {
+          if (!this.isBpheItem()) return false;
+          const material = task.value || "";
+          const modelPrefix = solderingModelPrefix(material);
+          const rowChanged = this.setSingleRow(doc, field, material, "");
+          const modelChanged = modelPrefix ? this.replaceBpModelPrefix(doc, modelPrefix) : false;
+          return rowChanged || modelChanged;
+        }
+        if (["Media", "Temperature inlet", "Temperature outlet", "Mass flow rate", "Volume flowrate", "Operating Pressure", "Pressure drop"].includes(field)) {
+          if (task.mode === "convert") return this.convertRow(doc, field, task, true);
+          return this.setTwoSidedRow(doc, field, task.hot || "", task.cold || "", task.unit || "");
+        }
+        if (field === "Connection Type") {
+          return this.setTwoSidedRow(doc, field, task.hot || "", task.cold || "", "");
+        }
+        if (["Design Temperature", "Design / Test Pressure", "Heat transfer area", "Number of plates", "Surface margin"].includes(field)) {
+          const label = field === "Design Temperature" ? "Design temperature" : field;
+          if (task.mode === "convert") return this.convertRow(doc, label, task, false);
+          return this.setSingleRow(doc, label, task.value || "", task.unit || "");
+        }
+        if (["Heat capacity", "O.H.T.C", "Density (Liquid)", "Specific heat capacity (Liquid)", "Thermal conductivity (Liquid)", "Viscosity (Liquid)", "Latent heat"].includes(field)) {
+          if (task.mode === "convert") return this.convertRow(doc, field, task, !field.toLowerCase().includes("capacity") || field === "Heat capacity");
+          if (task.hot || task.cold) return this.setTwoSidedRow(doc, field, task.hot || "", task.cold || "", task.unit || "");
+          return this.setSingleRow(doc, field, task.value || "", task.unit || "");
+        }
+        return false;
+      }
+
+      rows(doc) {
+        return [...doc.getElementsByTagNameNS("*", "tr")];
+      }
+
+      cells(row) {
+        return [...row.getElementsByTagNameNS("*", "tc")].filter(cell => cell.parentNode === row);
+      }
+
+      textNodes(node) {
+        return [...node.getElementsByTagNameNS("*", "t")];
+      }
+
+      cellText(cell) {
+        const chunks = [];
+        for (const node of cell.getElementsByTagNameNS("*", "*")) {
+          if (node.localName === "t") chunks.push(node.textContent || "");
+          if (node.localName === "br") chunks.push("\n");
+        }
+        return chunks.join("");
+      }
+
+      setCellText(cell, value) {
+        [...cell.getElementsByTagNameNS("*", "*")]
+          .filter(node => node.localName === "br")
+          .forEach(node => node.parentNode && node.parentNode.removeChild(node));
+        const nodes = this.textNodes(cell);
+        if (!nodes.length) return;
+        const nextValue = String(value);
+        this.setTextNodeWithBreaks(nodes[0], nextValue);
+        this.applyKoreanFontIfNeeded(nodes[0], nextValue);
+        nodes.slice(1).forEach(node => node.textContent = "");
+      }
+
+      setTextNodeWithBreaks(textNode, value) {
+        const run = this.closestElement(textNode, "r");
+        const parts = String(value || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+        textNode.textContent = parts[0] || "";
+        if (!run || parts.length < 2) return;
+        const doc = run.ownerDocument;
+        const ns = run.namespaceURI || "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+        let cursor = textNode;
+        for (const part of parts.slice(1)) {
+          const br = doc.createElementNS(ns, "w:br");
+          const t = doc.createElementNS(ns, "w:t");
+          t.textContent = part;
+          run.insertBefore(br, cursor.nextSibling);
+          run.insertBefore(t, br.nextSibling);
+          cursor = t;
+        }
+      }
+
+      applyKoreanFontIfNeeded(textNode, value) {
+        if (!/[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(String(value || ""))) return;
+        const run = this.closestElement(textNode, "r");
+        if (!run) return;
+        const doc = run.ownerDocument;
+        const ns = run.namespaceURI || "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+        let rPr = [...run.childNodes].find(node => node.nodeType === 1 && node.localName === "rPr");
+        if (!rPr) {
+          rPr = doc.createElementNS(ns, "w:rPr");
+          run.insertBefore(rPr, run.firstChild);
+        }
+        let rFonts = [...rPr.childNodes].find(node => node.nodeType === 1 && node.localName === "rFonts");
+        if (!rFonts) {
+          rFonts = doc.createElementNS(ns, "w:rFonts");
+          rPr.insertBefore(rFonts, rPr.firstChild);
+        }
+        rFonts.setAttributeNS(ns, "w:eastAsia", "맑은 고딕");
+      }
+
+      closestElement(node, localName) {
+        let current = node && node.parentNode;
+        while (current) {
+          if (current.nodeType === 1 && current.localName === localName) return current;
+          current = current.parentNode;
+        }
+        return null;
+      }
+
+      findRows(doc, label) {
+        return this.rows(doc)
+          .map(row => this.cells(row))
+          .filter(cells => cells.length && rowLabelMatches(this.cellText(cells[0]), label));
+      }
+
+      nextCellValue(doc, label) {
+        for (const row of this.rows(doc)) {
+          const cells = this.cells(row);
+          for (let i = 0; i < cells.length - 1; i += 1) {
+            if (rowLabelMatches(this.cellText(cells[i]), label)) return normalize(this.cellText(cells[i + 1]));
+          }
+        }
+        return "";
+      }
+
+      rowValue(doc, label) {
+        const row = this.findRows(doc, label)[0];
+        return row && row[1] ? normalize(this.cellText(row[1])) : "";
+      }
+
+      setHeaderPair(doc, field, value) {
+        let changed = false;
+        for (const row of this.rows(doc)) {
+          const cells = this.cells(row);
+          for (let i = 0; i < cells.length - 1; i += 1) {
+            if (rowLabelMatches(this.cellText(cells[i]), field)) {
+              const old = this.cellText(cells[i + 1]);
+              if (old !== value) {
+                this.setCellText(cells[i + 1], value);
+                this.changes.push([field, old, value]);
+                changed = true;
+              }
+            }
+          }
+        }
+        return changed;
+      }
+
+      replaceInCells(doc, pattern, repl, field) {
+        let changed = false;
+        for (const cell of doc.getElementsByTagNameNS("*", "tc")) {
+          const old = this.cellText(cell);
+          const next = old.replace(pattern, repl);
+          if (old !== next) {
+            this.setCellText(cell, next);
+            this.changes.push([field, old, next]);
+            changed = true;
+          }
+        }
+        return changed;
+      }
+
+      replaceInTextNodes(doc, pattern, repl, field) {
+        let changed = false;
+        for (const node of doc.getElementsByTagNameNS("*", "t")) {
+          const old = node.textContent || "";
+          const next = old.replace(pattern, repl);
+          if (old !== next) {
+            node.textContent = next;
+            this.applyKoreanFontIfNeeded(node, next);
+            this.changes.push([field, old, next]);
+            changed = true;
+          }
+        }
+        return changed;
+      }
+
+      replaceBpModelPrefix(doc, nextPrefix) {
+        let changed = false;
+        for (const node of doc.getElementsByTagNameNS("*", "t")) {
+          const old = node.textContent || "";
+          const next = old.replace(/\bM[CS](?=\d)/gi, nextPrefix);
+          if (old !== next) {
+            node.textContent = next;
+            this.applyKoreanFontIfNeeded(node, next);
+            this.changes.push(["BPHE Model", old, next]);
+            changed = true;
+          }
+        }
+        return changed;
+      }
+
+      setTwoSidedRow(doc, label, hot, cold, unit) {
+        let changed = false;
+        for (const cells of this.findRows(doc, label)) {
+          if (hot && cells[1]) {
+            const old = this.cellText(cells[1]);
+            if (old !== hot) {
+              this.setCellText(cells[1], hot);
+              this.changes.push([`${label} Hot`, old, hot]);
+              changed = true;
+            }
+          }
+          if (cold && cells[2]) {
+            const old = this.cellText(cells[2]);
+            if (old !== cold) {
+              this.setCellText(cells[2], cold);
+              this.changes.push([`${label} Cold`, old, cold]);
+              changed = true;
+            }
+          }
+          if (unit && cells[3]) {
+            const old = this.cellText(cells[3]);
+            if (old !== unit) {
+              this.setCellText(cells[3], unit);
+              this.changes.push([`${label} Unit`, old, unit]);
+              changed = true;
+            }
+          }
+        }
+        return changed;
+      }
+
+      setSingleRow(doc, label, value, unit) {
+        let changed = false;
+        for (const cells of this.findRows(doc, label)) {
+          if (value && cells[1]) {
+            const old = this.cellText(cells[1]);
+            if (old !== value) {
+              this.setCellText(cells[1], value);
+              this.changes.push([label, old, value]);
+              changed = true;
+            }
+          }
+          if (unit && cells.length > 2) {
+            const unitCell = cells[cells.length - 1];
+            const old = this.cellText(unitCell);
+            if (old !== unit) {
+              this.setCellText(unitCell, unit);
+              this.changes.push([`${label} Unit`, old, unit]);
+              changed = true;
+            }
+          }
+        }
+        return changed;
+      }
+
+      convertRow(doc, label, task, twoSided) {
+        let changed = false;
+        const field = task.field || label;
+        const requestedUnit = task.unitTarget || targetUnit(task.unitRule || "");
+        for (const cells of this.findRows(doc, label)) {
+          const unitCell = cells[cells.length - 1];
+          const oldUnit = unitCell ? this.cellText(unitCell) : "";
+          const rule = findConversionRule(field, oldUnit, requestedUnit) || task.unitRule || "";
+          if (!requestedUnit || canonicalUnit(oldUnit) === canonicalUnit(requestedUnit)) continue;
+          if (!rule) {
+            this.changes.push([`${label} Unit`, oldUnit || "(blank)", `SKIP: no conversion to ${requestedUnit}`]);
+            continue;
+          }
+          const indexes = twoSided && cells.length > 3 ? [1, 2] : [1];
+          for (const index of indexes) {
+            if (!cells[index]) continue;
+            const old = this.cellText(cells[index]);
+            const next = convertValue(old, rule);
+            if (old !== next) {
+              this.setCellText(cells[index], next);
+              this.changes.push([label, old, next]);
+              changed = true;
+            }
+          }
+          if (unitCell) {
+            const nextUnit = requestedUnit;
+            if (oldUnit !== nextUnit) {
+              this.setCellText(unitCell, nextUnit);
+              this.changes.push([`${label} Unit`, oldUnit, nextUnit]);
+              changed = true;
+            }
+          }
+        }
+        return changed;
+      }
+
+      async bytes() {
+        return await this.zip.generateAsync({ type: "blob" });
+      }
+    }
+
+    function convertValue(text, rule) {
+      return String(text || "").replace(/-?\d+(?:\.\d+)?/g, raw => {
+        const number = Number(raw);
+        let converted = number;
+        const heatConverted = convertHeatCapacityValue(number, rule);
+        const pressureConverted = convertPressureValue(number, rule);
+        const pressureDropConverted = convertPressureDropValue(number, rule);
+        const massFlowConverted = convertMassFlowValue(number, rule);
+        const volumeFlowConverted = convertVolumeFlowValue(number, rule);
+        if (heatConverted !== null) converted = heatConverted;
+        else if (pressureConverted !== null) converted = pressureConverted;
+        else if (pressureDropConverted !== null) converted = pressureDropConverted;
+        else if (massFlowConverted !== null) converted = massFlowConverted;
+        else if (volumeFlowConverted !== null) converted = volumeFlowConverted;
+        else if (rule === "kcal/(m2*h*K) -> W/(m2*K)") converted = number * 1.163;
+        else if (rule === "W/(m2*K) -> kcal/(m2*h*K)") converted = number / 1.163;
+        else if (rule === "kcal/(m*h*K) -> W/(m*K)") converted = number * 1.163;
+        else if (rule === "W/(m*K) -> kcal/(m*h*K)") converted = number / 1.163;
+        else if (rule === "kcal/(kg*K) -> kJ/(kg*K)") converted = number * 4.1868;
+        else if (rule === "kJ/(kg*K) -> kcal/(kg*K)") converted = number / 4.1868;
+        else if (rule === "kcal/kg -> kJ/kg") converted = number * 4.1868;
+        else if (rule === "kJ/kg -> kcal/kg") converted = number / 4.1868;
+        else if (rule === "bar_G -> bar_A") converted = number + 1.01325;
+        else if (rule === "bar_G -> kPaG") converted = number * 100;
+        else if (rule === "bar_G -> kPaA") converted = (number + 1.01325) * 100;
+        else if (rule === "bar_A -> bar_G") converted = number - 1.01325;
+        else if (rule === "bar_A -> kPaA") converted = number * 100;
+        else if (rule === "kPaG -> bar_G") converted = number / 100;
+        else if (rule === "kPaA -> bar_A") converted = number / 100;
+        else if (rule === "kPa -> bar") converted = number / 100;
+        else if (rule === "bar -> kPa") converted = number * 100;
+        const decimals = Math.abs(converted) >= 100 ? 1 : 2;
+        return converted.toFixed(decimals);
+      });
+    }
+
+    function convertHeatCapacityValue(number, rule) {
+      const parts = String(rule || "").split(" -> ");
+      if (parts.length !== 2) return null;
+      const from = heatCapacityFactorToW(parts[0]);
+      const to = heatCapacityFactorToW(parts[1]);
+      if (!from || !to) return null;
+      return number * from / to;
+    }
+
+    function heatCapacityFactorToW(unit) {
+      const value = canonicalUnit(unit);
+      if (value === "kcal/h") return 4186.8 / 3600;
+      if (value === "kw") return 1000;
+      if (value === "w" || value === "j/s" || value === "j") return 1;
+      if (value === "btu/h" || value === "btu") return 0.29307107;
+      if (value === "kj/s" || value === "kj") return 1000;
+      return 0;
+    }
+
+    function convertPressureValue(number, rule) {
+      const parts = String(rule || "").split(" -> ");
+      if (parts.length !== 2) return null;
+      const from = pressureUnitInfo(parts[0]);
+      const to = pressureUnitInfo(parts[1]);
+      if (!from || !to) return null;
+      const paAbsolute = number * from.factor + (from.kind === "G" ? 101325 : 0);
+      return (paAbsolute - (to.kind === "G" ? 101325 : 0)) / to.factor;
+    }
+
+    function pressureUnitInfo(unit) {
+      const value = canonicalUnit(unit).replace(/\//g, "");
+      const match = value.match(/^(pa|kpa|mpa|bar|kgfcm2|kgcm2|atm|psi|torr)(g|a)$/);
+      if (!match) return null;
+      const base = match[1] === "kgcm2" ? "kgfcm2" : match[1];
+      const factors = {
+        pa: 1,
+        kpa: 1000,
+        mpa: 1000000,
+        bar: 100000,
+        kgfcm2: 98066.5,
+        atm: 101325,
+        psi: 6894.757293,
+        torr: 133.322368
+      };
+      return factors[base] ? { factor: factors[base], kind: match[2].toUpperCase() } : null;
+    }
+
+    function convertPressureDropValue(number, rule) {
+      const parts = String(rule || "").split(" -> ");
+      if (parts.length !== 2) return null;
+      const from = pressureDropFactorToPa(parts[0]);
+      const to = pressureDropFactorToPa(parts[1]);
+      if (!from || !to) return null;
+      return number * from / to;
+    }
+
+    function pressureDropFactorToPa(unit) {
+      const value = canonicalUnit(unit).replace(/\//g, "");
+      if (value === "pa") return 1;
+      if (value === "kpa") return 1000;
+      if (value === "mpa") return 1000000;
+      if (value === "bar") return 100000;
+      if (value === "kgfcm2" || value === "kgcm2") return 98066.5;
+      if (value === "atm") return 101325;
+      if (value === "psi") return 6894.757293;
+      if (value === "torr") return 133.322368;
+      return 0;
+    }
+
+    function convertMassFlowValue(number, rule) {
+      const parts = String(rule || "").split(" -> ");
+      if (parts.length !== 2) return null;
+      const from = massFlowFactorToKgS(parts[0]);
+      const to = massFlowFactorToKgS(parts[1]);
+      if (!from || !to) return null;
+      return number * from / to;
+    }
+
+    function massFlowFactorToKgS(unit) {
+      const value = canonicalUnit(unit);
+      if (value === "kg/s") return 1;
+      if (value === "kg/min") return 1 / 60;
+      if (value === "kg/h") return 1 / 3600;
+      if (value === "lb/s" || value === "lbs/s") return 0.45359237;
+      if (value === "lb/min" || value === "lbs/min") return 0.45359237 / 60;
+      if (value === "lb/h" || value === "lbs/h") return 0.45359237 / 3600;
+      return 0;
+    }
+
+    function convertVolumeFlowValue(number, rule) {
+      const parts = String(rule || "").split(" -> ");
+      if (parts.length !== 2) return null;
+      const from = volumeFlowFactorToM3S(parts[0]);
+      const to = volumeFlowFactorToM3S(parts[1]);
+      if (!from || !to) return null;
+      return number * from / to;
+    }
+
+    function volumeFlowFactorToM3S(unit) {
+      const value = canonicalUnit(unit);
+      if (value === "m3/s") return 1;
+      if (value === "m3/min") return 1 / 60;
+      if (value === "m3/h") return 1 / 3600;
+      if (value === "l/s") return 0.001;
+      if (value === "l/min") return 0.001 / 60;
+      if (value === "l/h") return 0.001 / 3600;
+      if (value === "gal/s") return 0.003785411784;
+      if (value === "gal/min" || value === "gpm") return 0.003785411784 / 60;
+      if (value === "gal/h") return 0.003785411784 / 3600;
+      return 0;
+    }
+
+    function modelFromText(text) {
+      const value = normalize(text).toUpperCase();
+      const knownModels = [...BPHE_MODELS, ...GPHE_MODELS].sort((a, b) => b.length - a.length);
+      const known = knownModels.find(model => new RegExp(`\\b${escapeRegExp(model)}\\b`, "i").test(value));
+      if (known) return known;
+      const match = value.match(/\b(MX\d+[A-Z]+|M\d+[A-Z]+|M[CS]\d+[A-Z]*|MA\d+[A-Z]*|ZS\d+|KC\d+)\b/i);
+      return match ? match[1].toUpperCase() : "";
+    }
+
+    function classifyModel(model) {
+      const value = String(model || "").toUpperCase();
+      if (BPHE_MODELS.includes(value)) return "BPHE";
+      if (GPHE_MODELS.includes(value)) return "GPHE";
+      if (/^MS(10|20|30|60|70|80)$/.test(value)) return "BPHE";
+      if (/^MC(10|20|30|60|70|80)$/.test(value)) return "BPHE";
+      if (/^MA(40|60)$/.test(value)) return "BPHE";
+      return "";
+    }
+
+    function classifySheetForm(text) {
+      const value = String(text || "").toLowerCase();
+      if (/\binternal\b|내부용|사내용/.test(value)) return "internal";
+      if (/\bstandard\b|표준/.test(value)) return "standard";
+      if (/\bsimple\b|간단|간략/.test(value)) return "simple";
+      return "";
+    }
+
+    function escapeRegExp(text) {
+      return String(text || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+
+    function solderingModelPrefix(material) {
+      const value = normalize(material).toLowerCase();
+      if (value === "sus" || value === "s/s" || value === "stainless") return "MS";
+      if (value === "copper" || value === "cu") return "MC";
+      return "";
+    }
+
+    function plateText(text) {
+      const match = String(text || "").match(/\d+/);
+      return match ? `${match[0]}pl` : "";
+    }
+
+    function safeFilenamePart(text, fallback) {
+      const value = normalize(text)
+        .replace(/[\\/:*?"<>|]/g, "-")
+        .replace(/\s+/g, "")
+        .replace(/_+/g, "_");
+      return value || fallback;
+    }
+
+    async function outputNameFor(item, editor) {
+      const base = item.name.replace(/\\/g, "/").split("/").pop().replace(/\.docx$/i, "");
+      if (!renameOutput.checked) return `${base}_corrected.docx`;
+      const info = await editor.filenameInfo();
+      const itemNo = safeFilenamePart(info.itemNo, safeFilenamePart(base, "datasheet"));
+      const model = safeFilenamePart(info.result || modelFromText(item.result), "result");
+      const plates = safeFilenamePart(plateText(info.plates), "");
+      const form = safeFilenamePart(item.form, "form");
+      return [itemNo, model, plates, form].filter(Boolean).join("_") + ".docx";
+    }
+
+    async function preview() {
+      if (!tasks.length) {
+        previewText.textContent = "No tasks.";
+        return;
+      }
+      let out = "";
+      for (const [index, item] of files.entries()) {
+        out += `== ${item.name} ==\n`;
+        const itemTasks = tasks.filter(task => task.targets && task.targets.includes(index));
+        if (!itemTasks.length) {
+          out += "  no assigned tasks\n\n";
+          continue;
+        }
+        try {
+          const editor = await DocxEditor.fromFile(item);
+          for (const task of itemTasks) {
+            const changes = await editor.applyTask({ ...task });
+            for (const [field, oldValue, newValue] of changes) {
+              out += `  ${field}: ${oldValue} -> ${newValue}\n`;
+            }
+          }
+          if (!editor.changes.length) out += "  no matched fields\n";
+        } catch (error) {
+          out += `  ERROR: ${readableError(error)}\n`;
+        }
+        out += "\n";
+      }
+      previewText.textContent = out;
+    }
+
+    async function buildCorrectedFiles() {
+      if (!files.length || !tasks.length) {
+        alert("Load files and add at least one task.");
+        return null;
+      }
+      const corrected = [];
+      const errors = [];
+      for (const [index, item] of files.entries()) {
+        try {
+          const editor = await DocxEditor.fromFile(item);
+          const itemTasks = tasks.filter(task => task.targets && task.targets.includes(index));
+          for (const task of itemTasks) await editor.applyTask({ ...task });
+          corrected.push({
+            name: await outputNameFor(item, editor),
+            blob: await editor.bytes()
+          });
+        } catch (error) {
+          errors.push(`${item.name}: ${readableError(error)}`);
+        }
+      }
+      await preview();
+      if (!corrected.length) {
+        alert(`No files saved.\n\n${errors.join("\n")}`);
+        return null;
+      }
+      return { corrected, errors };
+    }
+
+    async function downloadCorrectedZip() {
+      const result = await buildCorrectedFiles();
+      if (!result) return;
+      const { corrected, errors } = result;
+      const resultZip = new JSZip();
+      for (const file of corrected) resultZip.file(file.name, file.blob);
+      const blob = await resultZip.generateAsync({ type: "blob" });
+      triggerDownload(blob, "corrected_datasheets.zip");
+      if (errors.length) alert(`Saved ${corrected.length} file(s), with errors:\n\n${errors.slice(0, 8).join("\n")}`);
+    }
+
+    async function downloadCorrectedFiles() {
+      const result = await buildCorrectedFiles();
+      if (!result) return;
+      const { corrected, errors } = result;
+      for (const file of corrected) {
+        triggerDownload(file.blob, file.name);
+        await new Promise(resolve => setTimeout(resolve, 120));
+      }
+      if (errors.length) alert(`Saved ${corrected.length} file(s), with errors:\n\n${errors.slice(0, 8).join("\n")}`);
+    }
+
+    function setDownloadMode(mode) {
+      downloadMode = mode;
+      downloadZipBtn.classList.toggle("active", mode === "zip");
+      downloadFilesBtn.classList.toggle("active", mode === "files");
+    }
+
+    function downloadSelectedMode() {
+      if (downloadMode === "files") {
+        downloadCorrectedFiles();
+      } else {
+        downloadCorrectedZip();
+      }
+    }
+
+    function triggerDownload(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function activeAppTab() {
+      return document.getElementById("htriPage").classList.contains("active") ? "htri" : "mpx2";
+    }
+
+    function handleDropFiles(fileList) {
+      const dropped = [...fileList];
+      const docs = dropped.filter(file => file.name.toLowerCase().endsWith(".docx") && !file.name.startsWith("~$"));
+      const templateFiles = dropped.filter(file => /\.(xlsm|xlsx)$/i.test(file.name) && /template|datasheet|gphe|bphe|mc/i.test(file.name));
+      const sheets = dropped.filter(file => /\.(xls|xlsx)$/i.test(file.name) && !templateFiles.includes(file));
+      if (docs.length) loadFiles(docs);
+      templateFiles.forEach(file => loadHtriTemplate(file, /GPHE/i.test(file.name) ? "GPHE" : "BPHE"));
+      if (sheets.length) loadHtriFiles(sheets);
+      if (!docs.length && !sheets.length && !templateFiles.length) {
+        const message = "Only MPX2 .docx, HTRI .xls/.xlsx, and template .xlsm/.xlsx files are accepted.";
+        if (activeAppTab() === "htri") htriStatus.textContent = message;
+        else statusEl.textContent = message;
+      }
+    }
+
+
+    const htriFiles = [];
+    const htriTasks = [];
+    let htriSelectedTaskIndex = -1;
+    let htriEditingTaskIndex = -1;
+    const HTRI_FIELD_GROUPS = {
+      "Basic": ["Customer", "Project Name", "Contact", "Service", "Item No."],
+      "Duty Requirements": ["Media"],
+      "Unit Data": ["Soldering Material"]
+    };
+    const HTRI_FIELD_AVAILABILITY = {
+      "Soldering Material": ["BPHE"]
+    };
+    const HTRI_EDIT_FIELDS = Object.values(HTRI_FIELD_GROUPS).flat();
+    const htriRowsEl = document.getElementById("htriRows");
+    const htriStatus = document.getElementById("htriStatus");
+    const htriFieldSelect = document.getElementById("htriFieldSelect");
+    const htriDynamicForm = document.getElementById("htriDynamicForm");
+    const htriTaskList = document.getElementById("htriTaskList");
+    const htriPreviewText = document.getElementById("htriPreviewText");
+    const htriApplyTaskBtn = document.getElementById("htriApplyTaskBtn");
+    const htriTemplates = { BPHE: null, GPHE: null };
+
+    function htriTemplateWorkbookFromBuffer(buffer) {
+      return XLSX.read(buffer.slice(0), { type: "array", cellDates: false, cellFormula: true, cellStyles: true, bookVBA: true });
+    }
+
+    function timestampForName() {
+      return new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
+    }
+
+    function backupPreviousHtriTemplate(kind) {
+      const previous = htriTemplates[kind];
+      if (!previous || !previous.buffer) return;
+      const name = `old_${kind}_${timestampForName()}_${previous.name || kind + ".xlsm"}`;
+      triggerDownload(new Blob([previous.buffer], { type: "application/vnd.ms-excel.sheet.macroEnabled.12" }), name);
+    }
+
+    function setHtriTemplate(kind, name, buffer, options = {}) {
+      if (options.backupOld) backupPreviousHtriTemplate(kind);
+      const workbook = htriTemplateWorkbookFromBuffer(buffer);
+      htriTemplates[kind] = { file: null, name, workbook, buffer };
+      if (options.status !== false) htriStatus.textContent = `${kind} template loaded: ${name}`;
+    }
+
+    async function loadHtriTemplate(file, kind) {
+      if (!window.XLSX) {
+        alert("HTRI template reader is not loaded.");
+        return;
+      }
+      try {
+        setHtriTemplate(kind, file.name, await file.arrayBuffer(), { backupOld: true });
+      } catch (error) {
+        alert(`${kind} template read error: ` + (error.message || error));
+      }
+    }
+
+    async function fetchHtriTemplate(kind) {
+      const names = [`templates/${kind}.xlsm`, `template/${kind}.xlsm`];
+      for (const name of names) {
+        try {
+          const response = await fetch(name, { cache: "no-store" });
+          if (!response.ok) continue;
+          setHtriTemplate(kind, name, await response.arrayBuffer(), { status: false });
+          return true;
+        } catch (error) {
+          // file:// blocks this in some browsers; manual upload remains available.
+        }
+      }
+      return false;
+    }
+
+    async function loadDefaultHtriTemplates() {
+      if (!window.XLSX) return;
+      const bphe = await fetchHtriTemplate("BPHE");
+      const gphe = await fetchHtriTemplate("GPHE");
+      if (bphe || gphe) {
+        htriStatus.textContent = `Default templates loaded: ${bphe ? "BPHE" : "-"} / ${gphe ? "GPHE" : "-"}`;
+      } else {
+        htriStatus.textContent = "Default templates not loaded. Use template buttons, or run this HTML from a local server.";
+      }
+    }
+
+    function cloneWorkbook(workbook) {
+      return XLSX.read(XLSX.write(workbook, { bookType: "xlsm", type: "array", cellStyles: true, bookVBA: true }), { type: "array", cellDates: false, cellFormula: true, cellStyles: true, bookVBA: true });
+    }
+
+    function ensureSheetCell(ws, address) {
+      if (!ws[address]) ws[address] = { t: "s", v: "" };
+      return ws[address];
+    }
+
+    function setSheetValue(ws, address, value) {
+      const cell = ensureSheetCell(ws, address);
+      const text = value == null ? "" : String(value);
+      cell.t = /^-?\d+(\.\d+)?$/.test(text) ? "n" : "s";
+      cell.v = cell.t === "n" ? Number(text) : text;
+      delete cell.w;
+    }
+
+    function splitPair(values, a = 0, b = 1) {
+      return Array.isArray(values) ? [values[a] || "", values[b] || ""] : ["", ""];
+    }
+
+    function htriApplyTemplateValues(workbook, summary) {
+      const ws = workbook.Sheets["MC Datasheet"] || workbook.Sheets[workbook.SheetNames.find(name => /datasheet/i.test(name))];
+      if (!ws) throw new Error("Template sheet 'MC Datasheet' was not found.");
+      const isGphe = summary["Product Type"] === "GPHE";
+      const model = summary["Model"] || "";
+      const plates = String(summary["Number of plates"] || "").replace(/\s*pl$/i, "");
+      const flow = summary["Total Fluid Flow"] || [];
+      const temp = summary["Temperature"] || [];
+      const pressure = summary["Inlet Pressure"] || [];
+      const dp = summary["Pressure Drop"] || [];
+      const designP = summary["Design/Test Pressure"] || [];
+      const designT = summary["Design/MDMT Temperature"] || [];
+      const passes = summary["Passes/Channels"] || [];
+      const inlet = summary["Inlet Connection"] || [];
+      const outlet = summary["Outlet Connection"] || [];
+      setSheetValue(ws, "B1", summary["Customer"]);
+      setSheetValue(ws, "B2", summary["Project Name"]);
+      setSheetValue(ws, "B3", summary["Contact"]);
+      setSheetValue(ws, "J3", summary["Item No."]);
+      setSheetValue(ws, "B4", summary["Service"]);
+      setSheetValue(ws, "J4", new Date().toLocaleDateString("en-US"));
+      setSheetValue(ws, "C6", `1 x ${model} - ${plates || ""} Countercurrent Flow`);
+      setSheetValue(ws, "C11", summary["Media Hot"]);
+      setSheetValue(ws, "G11", summary["Media Cold"]);
+      setSheetValue(ws, "E12", summary["Heat Exchanged"]);
+      setSheetValue(ws, "J12", "(kcal/hr)");
+      setSheetValue(ws, "C13", flow[0]);
+      setSheetValue(ws, "G13", flow[2] || flow[1]);
+      setSheetValue(ws, "J13", `(${summary["Total Fluid Flow Unit"] || "kg/hr"})`);
+      setSheetValue(ws, "C14", temp[0]);
+      setSheetValue(ws, "G14", temp[2] || temp[1]);
+      setSheetValue(ws, "J14", `(${summary["Temperature Unit"] || "Deg C"})`);
+      setSheetValue(ws, "C15", temp[1]);
+      setSheetValue(ws, "G15", temp[3] || temp[2]);
+      setSheetValue(ws, "J15", `(${summary["Temperature Unit"] || "Deg C"})`);
+      setSheetValue(ws, "C16", dp[2] || dp[0]);
+      setSheetValue(ws, "G16", dp[5] || dp[3] || dp[1]);
+      setSheetValue(ws, "J16", `(${summary["Pressure Drop Unit"] || "kPa"})`);
+      setSheetValue(ws, isGphe ? "C19" : "C18", pressure[0]);
+      setSheetValue(ws, isGphe ? "G19" : "G18", pressure[2] || pressure[1]);
+      setSheetValue(ws, isGphe ? "J19" : "J18", `(${summary["Inlet Pressure Unit"] || "barG"})`);
+      setSheetValue(ws, isGphe ? "C33" : "C30", summary["Area Per Unit"]);
+      setSheetValue(ws, isGphe ? "G33" : "G30", summary["Area Per Unit"]);
+      setSheetValue(ws, isGphe ? "C34" : "C31", plates);
+      setSheetValue(ws, isGphe ? "G34" : "G31", plates);
+      setSheetValue(ws, isGphe ? "C36" : "C32", summary["LMTD"]);
+      setSheetValue(ws, isGphe ? "C37" : "C33", summary["Transfer Rate Clean"]);
+      setSheetValue(ws, isGphe ? "G37" : "G33", summary["Transfer Rate Service"]);
+      setSheetValue(ws, isGphe ? "C39" : "C35", summary["Plate Material"]);
+      if (isGphe) {
+        setSheetValue(ws, "C32", model);
+        setSheetValue(ws, "F35", summary["Plate Thickness"]);
+        setSheetValue(ws, "C41", passes.length ? `${passes[0]} x ${passes[2] || passes[1] || ""}` : "");
+        setSheetValue(ws, "G41", passes.length ? `${passes[3] || passes[0]} x ${passes[5] || passes[4] || ""}` : "");
+        setSheetValue(ws, "C42", inlet.join(" "));
+        setSheetValue(ws, "G42", outlet.join(" "));
+        setSheetValue(ws, "D45", designT[0]);
+        setSheetValue(ws, "H45", designT[1] || designT[0]);
+        setSheetValue(ws, "E46", designP[0]);
+        setSheetValue(ws, "G46", designP[1] || designP[0]);
+      } else {
+        setSheetValue(ws, "C36", summary["Soldering Material"]);
+        setSheetValue(ws, "C37", passes[0] || "");
+        setSheetValue(ws, "E37", passes[2] || passes[1] || "");
+        setSheetValue(ws, "G37", passes[3] || passes[0] || "");
+        setSheetValue(ws, "I37", passes[5] || passes[4] || "");
+        setSheetValue(ws, "C40", designT[0]);
+        setSheetValue(ws, "G40", designT[1] || designT[0]);
+        setSheetValue(ws, "C41", designP[0]);
+        setSheetValue(ws, "G41", designP[1] || designP[0]);
+      }
+      return workbook;
+    }
+
+    function findWorkbookSheetName(workbook, pattern) {
+      return workbook && workbook.SheetNames ? workbook.SheetNames.find(name => pattern.test(name)) : "";
+    }
+
+    function zipPathJoin(base, target) {
+      const raw = String(target || "").replace(/\\/g, "/");
+      if (raw.startsWith("/")) return raw.slice(1);
+      const dir = base.includes("/") ? base.slice(0, base.lastIndexOf("/") + 1) : "";
+      const parts = (dir + raw).split("/");
+      const out = [];
+      parts.forEach(part => {
+        if (!part || part === ".") return;
+        if (part === "..") out.pop();
+        else out.push(part);
+      });
+      return out.join("/");
+    }
+
+    function relsById(relsXml) {
+      const doc = new DOMParser().parseFromString(relsXml, "application/xml");
+      const map = {};
+      [...doc.getElementsByTagName("Relationship")].forEach(rel => {
+        map[rel.getAttribute("Id")] = rel.getAttribute("Target");
+      });
+      return map;
+    }
+
+    function templateSheetTarget(workbookXml, relsXml, pattern) {
+      const doc = new DOMParser().parseFromString(workbookXml, "application/xml");
+      const rels = relsById(relsXml);
+      const sheets = [...doc.getElementsByTagName("sheet")];
+      const sheet = sheets.find(node => pattern.test(node.getAttribute("name") || ""));
+      if (!sheet) return "";
+      const relId = sheet.getAttribute("r:id") || sheet.getAttribute("id");
+      const target = rels[relId];
+      return target ? zipPathJoin("xl/workbook.xml", target) : "";
+    }
+
+    function sourceSheetXmlFromWorkbook(workbook, pattern) {
+      const name = findWorkbookSheetName(workbook, pattern);
+      if (!name) return "";
+      return sheetXml(htriRows(workbook.Sheets[name]));
+    }
+
+    function forceWorkbookRecalcXml(xml) {
+      const calcPr = '<calcPr calcId="0" calcMode="auto" fullCalcOnLoad="1" forceFullCalc="1"/>';
+      if (/<calcPr\b[^>]*\/>/i.test(xml)) return xml.replace(/<calcPr\b[^>]*\/>/i, calcPr);
+      if (/<calcPr\b[^>]*>[\s\S]*?<\/calcPr>/i.test(xml)) return xml.replace(/<calcPr\b[^>]*>[\s\S]*?<\/calcPr>/i, calcPr);
+      return xml.replace(/<\/workbook>/i, calcPr + '</workbook>');
+    }
+
+    function removeCalcChainRelationshipXml(xml) {
+      return xml.replace(/<Relationship\b(?=[^>]*calcChain)[^>]*\/>/ig, "");
+    }
+
+    function removeCalcChainContentTypeXml(xml) {
+      return xml.replace(/<Override\b(?=[^>]*calcChain\.xml)[^>]*\/>/ig, "");
+    }
+
+    async function buildHtriTemplateBlob(item, index) {
+      const summary = { ...htriSummary(item), ...htriOverridesFor(index) };
+      const kind = summary["Product Type"] === "GPHE" ? "GPHE" : "BPHE";
+      const template = htriTemplates[kind];
+      if (!template) throw new Error(`${kind} template is not loaded.`);
+      if (!template.buffer) throw new Error(`${kind} template original data is missing.`);
+      if (!item.workbook) throw new Error(`${item.name} was not read correctly.`);
+      const zip = await JSZip.loadAsync(template.buffer.slice(0));
+      const workbookXml = await zip.file("xl/workbook.xml").async("text");
+      const workbookRels = await zip.file("xl/_rels/workbook.xml.rels").async("text");
+      const pairs = [
+        [/output\s*summary/i, /output\s*summary/i],
+        [/final\s*results/i, /final\s*results/i],
+        [/api\s*662/i, /api\s*662/i]
+      ];
+      pairs.forEach(([targetPattern, sourcePattern]) => {
+        const targetPath = templateSheetTarget(workbookXml, workbookRels, targetPattern);
+        const sourceXml = sourceSheetXmlFromWorkbook(item.workbook, sourcePattern);
+        if (!targetPath || !sourceXml) throw new Error(`Missing HTRI sheet: ${sourcePattern}`);
+        zip.file(targetPath, sourceXml);
+      });
+      zip.file("xl/workbook.xml", forceWorkbookRecalcXml(workbookXml));
+      zip.file("xl/_rels/workbook.xml.rels", removeCalcChainRelationshipXml(workbookRels));
+      const contentTypes = zip.file("[Content_Types].xml");
+      if (contentTypes) zip.file("[Content_Types].xml", removeCalcChainContentTypeXml(await contentTypes.async("text")));
+      if (zip.files["xl/calcChain.xml"]) delete zip.files["xl/calcChain.xml"];
+      const blob = await zip.generateAsync({ type: "blob" });
+      return { blob, summary, extension: "xlsm" };
+    }
+    async function loadHtriFiles(fileList) {
+      if (!window.XLSX) {
+        alert("HTRI XLS reader is not loaded. Internet access may be required for the XLS parser library.");
+        return;
+      }
+      const expanded = [...fileList].filter(file => /\.(xls|xlsx)$/i.test(file.name));
+      if (!expanded.length) {
+        alert("HTRI accepts .xls or .xlsx files only.");
+        return;
+      }
+      htriStatus.textContent = "Reading " + expanded.length + " HTRI file(s)...";
+      let added = 0;
+      let skipped = 0;
+      for (const file of expanded) {
+        if (htriFiles.some(item => item.name === file.name)) {
+          skipped += 1;
+          continue;
+        }
+        try {
+          const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: false, cellFormula: false });
+          const model = htriModelFromWorkbook(file.name, workbook);
+          const kind = htriKindFromWorkbook(file.name, workbook, model) || "HTRI";
+          const item = { file, name: file.name, workbook, selected: true, kind, form: file.name.toLowerCase().endsWith(".xls") ? "xls" : "xlsx", result: workbook.SheetNames.join(" | ") };
+          htriFiles.push(item);
+          added += 1;
+        } catch (error) {
+          htriFiles.push({ file, name: file.name, workbook: null, selected: true, kind: "HTRI", form: file.name.toLowerCase().endsWith(".xls") ? "xls" : "xlsx", result: "read error: " + (error.message || error) });
+          added += 1;
+        }
+      }
+      renderHtriFiles();
+      refreshHtriFieldSelect();
+      renderHtriPreview();
+      htriStatus.textContent = "Loaded HTRI " + htriFiles.length + " file(s)" + (skipped ? ", skipped " + skipped + " duplicate(s)." : ".");
+    }
+
+    function renderHtriFiles() {
+      htriRowsEl.innerHTML = "";
+      htriFiles.forEach((item, index) => {
+        const tr = document.createElement("tr");
+        const result = String(item.result || "");
+        tr.innerHTML = `
+          <td><input type="checkbox" ${item.selected ? "checked" : ""}></td>
+          <td>${index + 1}</td>
+          <td title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</td>
+          <td>${escapeHtml(item.kind)}</td>
+          <td>${escapeHtml(item.form)}</td>
+          <td class="${result.startsWith("read error") ? "error" : ""}" title="${escapeHtml(result)}">${escapeHtml(result)}</td>
+        `;
+        tr.querySelector("input").addEventListener("change", event => {
+          item.selected = event.target.checked;
+          refreshHtriFieldSelect();
+        });
+        htriRowsEl.appendChild(tr);
+      });
+    }
+
+    function refreshHtriFieldSelect() {
+      const previous = htriFieldSelect.value;
+      renderGroupedFieldSelect(htriFieldSelect, HTRI_FIELD_GROUPS, selectedKinds(htriFiles), HTRI_FIELD_AVAILABILITY, previous);
+      renderHtriDynamicForm();
+    }
+
+    function initHtriFieldSelect() {
+      htriFieldSelect.addEventListener("change", renderHtriDynamicForm);
+      refreshHtriFieldSelect();
+    }
+    function renderHtriDynamicForm() {
+      const field = htriFieldSelect.value;
+      if (field === "Media") {
+        htriDynamicForm.innerHTML = inputRow("Hot Side", "hot") + inputRow("Cold Side", "cold");
+      } else if (field === "Soldering Material") {
+        htriDynamicForm.innerHTML = selectRow("Material", "value", ["SUS", "Copper"]);
+      } else {
+        htriDynamicForm.innerHTML = inputRow("Value", "value");
+      }
+    }
+
+    function collectHtriFormValues() {
+      const task = { field: htriFieldSelect.value, mode: "set" };
+      htriDynamicForm.querySelectorAll("[data-key]").forEach(input => {
+        task[input.dataset.key] = input.value;
+      });
+      return task;
+    }
+
+    function applyHtriTaskFromForm() {
+      const targets = htriFiles.map((file, index) => file.selected ? index : -1).filter(index => index >= 0);
+      if (!targets.length) {
+        alert("Select at least one HTRI file for this task.");
+        return;
+      }
+      const task = collectHtriFormValues();
+      task.targets = targets;
+      task.targetNames = targets.map(index => htriFiles[index].name);
+      task.targetNumbers = targets.map(index => index + 1);
+      if (htriEditingTaskIndex >= 0 && htriTasks[htriEditingTaskIndex]) {
+        htriTasks[htriEditingTaskIndex] = task;
+        htriSelectedTaskIndex = htriEditingTaskIndex;
+        htriEditingTaskIndex = -1;
+      } else {
+        htriTasks.push(task);
+        htriSelectedTaskIndex = htriTasks.length - 1;
+      }
+      renderHtriTasks();
+      updateHtriApplyButton();
+    }
+
+    function renderHtriTasks() {
+      htriTaskList.innerHTML = "";
+      htriTasks.forEach((task, index) => {
+        const div = document.createElement("div");
+        div.className = `task-item ${index === htriSelectedTaskIndex ? "selected" : ""}`;
+        div.textContent = taskLabel(task);
+        div.addEventListener("click", () => {
+          htriSelectedTaskIndex = index;
+          renderHtriTasks();
+        });
+        htriTaskList.appendChild(div);
+      });
+    }
+
+    function removeHtriTask() {
+      if (htriSelectedTaskIndex < 0) return;
+      htriTasks.splice(htriSelectedTaskIndex, 1);
+      htriSelectedTaskIndex = -1;
+      htriEditingTaskIndex = -1;
+      renderHtriTasks();
+      updateHtriApplyButton();
+    }
+
+    function editHtriTask() {
+      if (htriSelectedTaskIndex < 0 || !htriTasks[htriSelectedTaskIndex]) {
+        alert("Select a HTRI task to edit.");
+        return;
+      }
+      const task = htriTasks[htriSelectedTaskIndex];
+      htriEditingTaskIndex = htriSelectedTaskIndex;
+      htriFiles.forEach((file, index) => {
+        file.selected = task.targets && task.targets.includes(index);
+      });
+      renderHtriFiles();
+      refreshHtriFieldSelect();
+      htriFieldSelect.value = task.field;
+      renderHtriDynamicForm();
+      htriDynamicForm.querySelectorAll("[data-key]").forEach(input => {
+        const key = input.dataset.key;
+        if (Object.prototype.hasOwnProperty.call(task, key)) input.value = task[key] || "";
+      });
+      updateHtriApplyButton();
+    }
+
+    function updateHtriApplyButton() {
+      htriApplyTaskBtn.textContent = htriEditingTaskIndex >= 0 ? "Update" : "Apply";
+    }
+
+    function htriSheet(workbook, pattern) {
+      const name = workbook.SheetNames.find(sheet => pattern.test(sheet));
+      return name ? workbook.Sheets[name] : null;
+    }
+
+    function htriRows(sheet) {
+      return sheet ? XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" }) : [];
+    }
+
+    function htriWorkbookText(workbook) {
+      if (!workbook) return "";
+      const chunks = [];
+      workbook.SheetNames.forEach(name => {
+        chunks.push(name);
+        htriRows(workbook.Sheets[name]).slice(0, 120).forEach(row => {
+          row.forEach(cell => {
+            const value = String(cell || "").trim();
+            if (value) chunks.push(value);
+          });
+        });
+      });
+      return chunks.join(" ");
+    }
+
+    function htriModelFromWorkbook(name, workbook) {
+      return modelFromText((name || "") + " " + htriWorkbookText(workbook));
+    }
+
+    function htriKindFromWorkbook(name, workbook, model = "") {
+      const text = ((name || "") + " " + htriWorkbookText(workbook)).toUpperCase();
+      const modelKind = classifyModel(model || htriModelFromWorkbook(name, workbook));
+      if (modelKind) return modelKind;
+      if (/\bGPHE\b/.test(text)) return "GPHE";
+      if (/\bBPHE\b/.test(text)) return "BPHE";
+      return "";
+    }
+
+    function htriFind(rows, labels) {
+      const wants = labels.map(label => String(label).toLowerCase());
+      const blocked = new Set(["ref no.", "proposal no.", "date", "rev", "parallel", "series"]);
+      for (const row of rows) {
+        const idx = row.findIndex(cell => wants.some(label => String(cell).toLowerCase().trim() === label));
+        if (idx >= 0) {
+          const value = row.slice(idx + 1).find(cell => {
+            const text = String(cell).trim();
+            return text && !blocked.has(text.toLowerCase());
+          });
+          if (value !== undefined) return String(value).trim();
+        }
+      }
+      return "";
+    }
+
+    function htriCleanRow(row) {
+      return (row || []).map(value => String(value == null ? "" : value).trim());
+    }
+
+    function htriRowByLabel(rows, label) {
+      const want = String(label).toLowerCase();
+      return rows.map(htriCleanRow).find(row => row.some(cell => cell.toLowerCase() === want)) || [];
+    }
+
+    function htriRowValues(rows, label) {
+      const row = htriRowByLabel(rows, label);
+      const idx = row.findIndex(cell => cell.toLowerCase() === String(label).toLowerCase());
+      if (idx < 0) return { unit: "", values: [] };
+      const rest = row.slice(idx + 1).filter(value => value !== "");
+      const unit = rest[0] && /[a-z%/()°-]/i.test(rest[0]) ? rest.shift() : "";
+      return { unit, values: rest };
+    }
+
+    function htriNamedValue(rows, label) {
+      const row = htriRowByLabel(rows, label);
+      const idx = row.findIndex(cell => cell.toLowerCase() === String(label).toLowerCase());
+      if (idx < 0) return "";
+      return row.slice(idx + 1).find(value => value && !/^(ref no\.?|proposal no\.?|date|rev|parallel|series)$/i.test(value)) || "";
+    }
+
+    function htriFirstNumberFromName(name) {
+      const match = String(name || "").match(/(\d+)\s*pl\b/i);
+      return match ? match[1] : "";
+    }
+
+    function htriOverridesFor(index) {
+      const overrides = {};
+      htriTasks.forEach(task => {
+        if (!HTRI_EDIT_FIELDS.includes(task.field)) return;
+        if (!task.targets || !task.targets.includes(index)) return;
+        if (task.field === "Media") {
+          if (task.hot) overrides["Media Hot"] = task.hot;
+          if (task.cold) overrides["Media Cold"] = task.cold;
+        } else if (task.value) {
+          overrides[task.field] = task.value;
+        }
+      });
+      return overrides;
+    }
+
+    function htriSummary(item) {
+      if (!item.workbook) {
+        return {
+          "Source File": item.name,
+          "Read Status": item.result || "read error"
+        };
+      }
+      const wb = item.workbook;
+      const api = htriRows(htriSheet(wb, /api\s*662/i));
+      const out = htriRows(htriSheet(wb, /output\s*summary/i));
+      const fin = htriRows(htriSheet(wb, /final\s*results/i));
+      const base = item.name.replace(/\.[^.]+$/i, "");
+      const model = htriModelFromWorkbook(item.name, wb) || modelFromText(base);
+      const kind = htriKindFromWorkbook(item.name, wb, model) || item.kind || "";
+      const filePlates = htriFirstNumberFromName(base);
+      const totalPlates = htriNamedValue(api, "Total No. Plates") || filePlates;
+      const fluid = htriRowValues(api, "Fluid Name").values;
+      const flow = htriRowValues(api, "Total Fluid Flow");
+      const temp = htriRowValues(api, "Temperature");
+      const pressure = htriRowValues(api, "Inlet Pressure");
+      const pressureDrop = htriRowValues(api, "Pressure Drop Allowed/Calc'd");
+      const designPressure = htriRowValues(api, "Design/Test Pressure");
+      const designTemp = htriRowValues(api, "Design/MDMT Temperature");
+      const duty = htriRowValues(api, "Heat Exchanged, kcal/hr");
+      const lmtd = htriRowValues(api, "LMTD, deg C");
+      const transfer = htriRowValues(api, "Transfer Rate, W/m2-K, Clean");
+      const area = htriRowValues(api, "Area Per Unit (m2)");
+      const passes = htriRowValues(api, "No. Passes/ No. Channels Per Pass");
+      const thickness = htriRowValues(api, "Plate Thickness, mm");
+      const gap = htriRowValues(api, "Nominal Plate Gap, mm");
+      const inletConn = htriRowValues(api, "Inlet");
+      const outletConn = htriRowValues(api, "Outlet");
+      const plateMaterial = htriNamedValue(api, "Plates");
+      const soldering = kind === "BPHE" ? (model.startsWith("MS") ? "SUS" : model.startsWith("MC") ? "Copper" : "") : "";
+      return {
+        "Source File": item.name,
+        "Product Type": kind,
+        "Item No.": htriNamedValue(api, "Item No.") || base.split("_")[0] || "",
+        "Customer": htriNamedValue(api, "Customer"),
+        "Project Name": htriFind([...out, ...fin, ...api], ["project name", "project"]),
+        "Contact": htriFind([...out, ...fin, ...api], ["contact", "attn"]),
+        "Service": htriNamedValue(api, "Service of Unit"),
+        "Model": model,
+        "Number of plates": totalPlates ? String(totalPlates).replace(/\s*pl$/i, "") + "pl" : "",
+        "Media Hot": fluid[0] || "",
+        "Media Cold": fluid[1] || "",
+        "Soldering Material": soldering,
+        "Total Fluid Flow Unit": flow.unit,
+        "Total Fluid Flow": flow.values,
+        "Temperature Unit": temp.unit,
+        "Temperature": temp.values,
+        "Inlet Pressure Unit": pressure.unit,
+        "Inlet Pressure": pressure.values,
+        "Pressure Drop Unit": pressureDrop.unit,
+        "Pressure Drop": pressureDrop.values,
+        "Design/Test Pressure Unit": designPressure.unit,
+        "Design/Test Pressure": designPressure.values,
+        "Design/MDMT Temperature Unit": designTemp.unit,
+        "Design/MDMT Temperature": designTemp.values,
+        "Heat Exchanged": duty.values[0] || "",
+        "LMTD": lmtd.values[0] || "",
+        "Transfer Rate Clean": transfer.values[0] || "",
+        "Transfer Rate Service": transfer.values[1] || "",
+        "Area Per Unit": area.values[0] || "",
+        "Passes/Channels": passes.values,
+        "Plate Thickness": thickness.values[0] || "",
+        "Nominal Plate Gap": gap.values[0] || "",
+        "Plate Material": plateMaterial,
+        "Inlet Connection": inletConn.values,
+        "Outlet Connection": outletConn.values
+      };
+    }
+
+    function htriOutputRows(summary) {
+      return [
+        ["HTRI DATASHEET", "", "", "", "", ""],
+        ["Source File", summary["Source File"], "Product Type", summary["Product Type"], "Soldering Material", summary["Soldering Material"]],
+        ["Customer", summary["Customer"], "Project Name", summary["Project Name"], "Contact", summary["Contact"]],
+        ["Service", summary["Service"], "Item No.", summary["Item No."], "Model", summary["Model"]],
+        ["No. of Plates", summary["Number of plates"], "Area Per Unit (m2)", summary["Area Per Unit"], "", ""],
+        ["", "", "", "", "", ""],
+        ["Performance", "Unit", "Hot In", "Hot Out", "Cold In", "Cold Out"],
+        ["Fluid Name", "", summary["Media Hot"], summary["Media Hot"], summary["Media Cold"], summary["Media Cold"]],
+        ["Total Fluid Flow", summary["Total Fluid Flow Unit"], ...(summary["Total Fluid Flow"] || [])],
+        ["Temperature", summary["Temperature Unit"], ...(summary["Temperature"] || [])],
+        ["Inlet Pressure", summary["Inlet Pressure Unit"], ...(summary["Inlet Pressure"] || [])],
+        ["Pressure Drop Allowed/Calc'd", summary["Pressure Drop Unit"], ...(summary["Pressure Drop"] || [])],
+        ["Design/Test Pressure", summary["Design/Test Pressure Unit"], ...(summary["Design/Test Pressure"] || [])],
+        ["Design/MDMT Temperature", summary["Design/MDMT Temperature Unit"], ...(summary["Design/MDMT Temperature"] || [])],
+        ["", "", "", "", "", ""],
+        ["Thermal", "Unit", "Value", "", "", ""],
+        ["Heat Exchanged", "kcal/hr", summary["Heat Exchanged"], "", "", ""],
+        ["LMTD", "deg C", summary["LMTD"], "", "", ""],
+        ["Transfer Rate Clean", "W/m2-K", summary["Transfer Rate Clean"], "Service", summary["Transfer Rate Service"], ""],
+        ["", "", "", "", "", ""],
+        ["Mechanical", "", "", "", "", ""],
+        ["Plate Material", summary["Plate Material"], "Plate Thickness, mm", summary["Plate Thickness"], "Nominal Plate Gap, mm", summary["Nominal Plate Gap"]],
+        ["No. Passes / Channels", "", ...(summary["Passes/Channels"] || [])],
+        ["Inlet Connection", "", ...(summary["Inlet Connection"] || [])],
+        ["Outlet Connection", "", ...(summary["Outlet Connection"] || [])]
+      ].map(row => row.slice(0, 6));
+    }
+
+    function xmlEscape(value) {
+      return String(value == null ? "" : value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function excelColumnName(index) {
+      let n = index + 1;
+      let name = "";
+      while (n > 0) {
+        const rem = (n - 1) % 26;
+        name = String.fromCharCode(65 + rem) + name;
+        n = Math.floor((n - 1) / 26);
+      }
+      return name;
+    }
+
+    function sheetXml(rows) {
+      const body = rows.map((row, r) => {
+        const cells = row.map((value, c) => {
+          const ref = excelColumnName(c) + (r + 1);
+          const text = xmlEscape(value);
+          return `<c r="${ref}" t="inlineStr"><is><t>${text}</t></is></c>`;
+        }).join("");
+        return `<row r="${r + 1}">${cells}</row>`;
+      }).join("");
+      return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><cols><col min="1" max="1" width="28" customWidth="1"/><col min="2" max="2" width="22" customWidth="1"/><col min="3" max="6" width="18" customWidth="1"/></cols><sheetData>${body}</sheetData></worksheet>`;
+    }
+
+    async function buildXlsxBlob(sheets) {
+      const zip = new JSZip();
+      const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}</Types>`;
+      const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
+      const workbook = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map((sheet, i) => `<sheet name="${xmlEscape(sheet.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("")}</sheets></workbook>`;
+      const workbookRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join("")}</Relationships>`;
+      zip.file("[Content_Types].xml", contentTypes);
+      zip.file("_rels/.rels", rootRels);
+      zip.file("xl/workbook.xml", workbook);
+      zip.file("xl/_rels/workbook.xml.rels", workbookRels);
+      sheets.forEach((sheet, i) => zip.file(`xl/worksheets/sheet${i + 1}.xml`, sheetXml(sheet.rows)));
+      return await zip.generateAsync({ type: "blob" });
+    }
+
+    function renderHtriPreview() {
+      if (!htriFiles.length) {
+        htriPreviewText.textContent = "No HTRI files.";
+        return;
+      }
+      let out = "";
+      htriFiles.forEach((item, index) => {
+        out += `== #${index + 1} ${item.name} ==\n`;
+        const assigned = htriTasks.filter(task => task.targets && task.targets.includes(index));
+        if (!assigned.length) {
+          out += "  no assigned tasks\n";
+        } else {
+          assigned.forEach(task => {
+            out += "  " + taskLabel(task).replace(/ \(#.*\)$/, "") + "\n";
+          });
+        }
+        const summary = { ...htriSummary(item), ...htriOverridesFor(index) };
+        Object.entries(summary).forEach(([key, value]) => {
+          if (value) out += `  ${key}: ${value}\n`;
+        });
+        out += "\n";
+      });
+      htriPreviewText.textContent = out;
+    }
+
+    function uniqueSheetName(wb, desired) {
+      const clean = (desired || "Datasheet").replace(/[\\/:?*\[\]]/g, " ").trim().slice(0, 31) || "Datasheet";
+      let name = clean;
+      let n = 2;
+      while (wb.SheetNames.includes(name)) {
+        const suffix = " " + n;
+        name = clean.slice(0, 31 - suffix.length) + suffix;
+        n += 1;
+      }
+      return name;
+    }
+
+    function htriOutputName(item, summary, extension) {
+      const itemNo = safeFilenamePart(summary["Item No."], item.name.replace(/\.[^.]+$/i, ""));
+      const model = safeFilenamePart(summary["Model"], "HTRI");
+      const plates = safeFilenamePart(summary["Number of plates"], "");
+      return [itemNo, model, plates].filter(Boolean).join("_") + "." + extension;
+    }
+
+    async function downloadHtriViaServer(selected) {
+      if (!/^https?:$/i.test(location.protocol)) throw new Error("Local server is not running.");
+      const form = new FormData();
+      selected.forEach(({ item, index }) => {
+        const summary = { ...htriSummary(item), ...htriOverridesFor(index) };
+        const kind = summary["Product Type"] === "GPHE" ? "GPHE" : "BPHE";
+        form.append(`override__${index}`, JSON.stringify(htriOverridesFor(index)));
+        form.append(`htri__${index}__${kind}`, item.file, item.file.name);
+      });
+      console.log("HTRI convert request start", { selected: selected.length });
+      htriStatus.textContent = "Sending HTRI file(s) to converter...";
+      const response = await fetch("/api/htri-convert", { method: "POST", body: form });
+      console.log("HTRI convert response", { ok: response.ok, status: response.status });
+      if (!response.ok) throw new Error(await response.text());
+      const disposition = response.headers.get("Content-Disposition") || "";
+      const match = disposition.match(/filename\*?=(?:UTF-8''|\")?([^";]+)/i);
+      const filename = match ? decodeURIComponent(match[1].replace(/"/g, "")) : (selected.length > 1 ? "HTRI_Datasheets.zip" : "HTRI_Datasheet.xlsm");
+      const blob = await response.blob();
+      console.log("HTRI download blob", { filename, size: blob.size });
+      triggerDownload(blob, filename);
+    }
+
+    async function downloadHtriXlsx() {
+      const button = document.getElementById("htriDownloadBtn");
+      console.log("HTRI download clicked", { files: htriFiles.length });
+      htriStatus.textContent = "Preparing HTRI XLSM download...";
+      const selected = htriFiles.map((item, index) => ({ item, index })).filter(entry => entry.item.selected !== false);
+      if (!selected.length) {
+        alert("Load and select HTRI .xls/.xlsx files first.");
+        htriStatus.textContent = "No selected HTRI files.";
+        return;
+      }
+      try {
+        if (button) button.disabled = true;
+        htriStatus.textContent = "Converting with Excel... please wait.";
+        await downloadHtriViaServer(selected);
+        renderHtriPreview();
+        htriStatus.textContent = "HTRI XLSM conversion complete.";
+      } catch (error) {
+        alert("HTRI Excel conversion failed:\n" + (error.message || error));
+        htriStatus.textContent = "HTRI conversion failed.";
+      } finally {
+        if (button) button.disabled = false;
+      }
+    }
+    function switchAppTab(tab) {
+      document.getElementById("mpx2Page").classList.toggle("active", tab === "mpx2");
+      document.getElementById("htriPage").classList.toggle("active", tab === "htri");
+      document.getElementById("mpx2TabBtn").classList.toggle("active", tab === "mpx2");
+      document.getElementById("htriTabBtn").classList.toggle("active", tab === "htri");
+    }
+    document.getElementById("uploadInput").addEventListener("change", event => {
+      loadFiles(event.target.files);
+      event.target.value = "";
+    });
+    document.getElementById("selectAllBtn").addEventListener("click", () => {
+      files.forEach(file => file.selected = true);
+      renderFiles();
+      refreshFieldSelect();
+    });
+    document.getElementById("selectNoneBtn").addEventListener("click", () => {
+      files.forEach(file => file.selected = false);
+      renderFiles();
+      refreshFieldSelect();
+    });
+    document.getElementById("applyTaskBtn").addEventListener("click", applyTaskFromForm);
+    document.getElementById("editTaskBtn").addEventListener("click", editTask);
+    document.getElementById("removeTaskBtn").addEventListener("click", removeTask);
+    document.getElementById("previewBtn").addEventListener("click", preview);
+    document.getElementById("downloadZipBtn").addEventListener("click", () => setDownloadMode("zip"));
+    document.getElementById("downloadFilesBtn").addEventListener("click", () => setDownloadMode("files"));
+    document.getElementById("downloadBtn").addEventListener("click", downloadSelectedMode);
+    document.getElementById("htriUploadInput").addEventListener("change", event => { loadHtriFiles(event.target.files); event.target.value = ""; });
+    document.getElementById("htriBpheTemplateInput").addEventListener("change", event => {
+      if (event.target.files[0]) loadHtriTemplate(event.target.files[0], "BPHE");
+      event.target.value = "";
+    });
+    document.getElementById("htriGpheTemplateInput").addEventListener("change", event => {
+      if (event.target.files[0]) loadHtriTemplate(event.target.files[0], "GPHE");
+      event.target.value = "";
+    });
+    document.getElementById("htriSelectAllBtn").addEventListener("click", () => {
+      htriFiles.forEach(file => file.selected = true);
+      renderHtriFiles();
+      refreshHtriFieldSelect();
+    });
+    document.getElementById("htriSelectNoneBtn").addEventListener("click", () => {
+      htriFiles.forEach(file => file.selected = false);
+      renderHtriFiles();
+      refreshHtriFieldSelect();
+    });
+    document.getElementById("htriApplyTaskBtn").addEventListener("click", applyHtriTaskFromForm);
+    document.getElementById("htriEditTaskBtn").addEventListener("click", editHtriTask);
+    document.getElementById("htriRemoveTaskBtn").addEventListener("click", removeHtriTask);
+    document.getElementById("htriPreviewBtn").addEventListener("click", renderHtriPreview);
+    document.getElementById("htriDownloadBtn").addEventListener("click", event => {
+      event.preventDefault();
+      downloadHtriXlsx();
+    });
+    document.getElementById("mpx2TabBtn").addEventListener("click", () => switchAppTab("mpx2"));
+    document.getElementById("htriTabBtn").addEventListener("click", () => switchAppTab("htri"));
+
+    window.addEventListener("dragenter", event => {
+      if (isReorderingFiles) return;
+      event.preventDefault();
+      document.body.classList.add("dragging");
+    });
+    window.addEventListener("dragover", event => {
+      if (isReorderingFiles) return;
+      event.preventDefault();
+      document.body.classList.add("dragging");
+    });
+    window.addEventListener("dragleave", event => {
+      if (isReorderingFiles) return;
+      if (event.clientX <= 0 || event.clientY <= 0 || event.clientX >= window.innerWidth || event.clientY >= window.innerHeight) {
+        document.body.classList.remove("dragging");
+      }
+    });
+    window.addEventListener("drop", event => {
+      if (isReorderingFiles) return;
+      event.preventDefault();
+      document.body.classList.remove("dragging");
+      handleDropFiles(event.dataTransfer.files);
+    });
+
+    initFieldSelect();
+    initHtriFieldSelect();
+    renderHtriPreview();
+    loadDefaultHtriTemplates();
+  </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

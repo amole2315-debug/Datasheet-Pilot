@@ -1,0 +1,26 @@
+﻿# Python / build artifacts
+__pycache__/
+*.py[cod]
+build/
+dist/
+*.spec
+
+# App output / temporary extraction
+output/
+extracted/
+copytest/
+
+# Broken-state backups created during recovery
+*_broken_*.html
+*_broken_*.js
+*_broken_*.ps1
+
+# Office lock files
+~$*
+
+# Archives and generated packages
+*.zip
+
+# Local editor/system files
+.DS_Store
+Thumbs.db
