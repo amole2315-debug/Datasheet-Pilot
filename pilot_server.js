@@ -40,6 +40,8 @@ function writeHtriExcelCopyScript(tempRoot) {
     "$model = First-NonBlank @((Model-FromName (T $fin 'Y11')), (Model-FromName $base), (Model-FromName (T $api 'L10')), (Model-FromName (T $fin 'L11')), (Model-FromName (T $api 'D6')), (Model-FromName (T $api 'M9')))",
     'model extraction'
   );
+  script = patchAll(script, /\[Math\]::Round\(\(\$n \* \$from \/ \$to\), 6\)/g, "[Math]::Round(($n * $from / $to), 3)", 'unit conversion precision');
+  script = patchAll(script, /NumberFormat = '0\.######'/g, "NumberFormat = '0.###'", 'unit conversion number format');
   script = patchScript(
     script,
     /    Put \$ds 'D45' \$minTemp\r?\n    Put \$ds 'F45' '\/'\r?\n    Put \$ds 'H45' \$maxTemp\r?\n    Put \$ds 'J45' '\(Deg C\)'\r?\n    Put \$ds 'E46' \$designPressure\r?\n    Put \$ds 'F46' '\/'\r?\n    Put \$ds 'G46' \$testPressure\r?\n    Put \$ds 'J46' '\(barG\)'/,
