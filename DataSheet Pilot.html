@@ -3201,10 +3201,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           continue;
         }
         try {
-          const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: false, cellFormula: false });
+          const buffer = await file.arrayBuffer();
+          const workbook = XLSX.read(buffer.slice(0), { type: "array", cellDates: false, cellFormula: false });
           const model = htriModelFromWorkbook(file.name, workbook);
           const kind = htriKindFromWorkbook(file.name, workbook, model) || "GPHE";
-          const item = { file, name: file.name, workbook, selected: true, kind, form: file.name.toLowerCase().endsWith(".xls") ? "xls" : "xlsx", result: workbook.SheetNames.join(" | ") };
+          const item = { file, buffer, name: file.name, workbook, selected: true, kind, form: file.name.toLowerCase().endsWith(".xls") ? "xls" : "xlsx", result: workbook.SheetNames.join(" | ") };
           htriFiles.push(item);
           added += 1;
         } catch (error) {
@@ -3343,7 +3344,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return `
         <div class="duty-grid">
           <div></div>
-          <div class="duty-head">Hot / Value</div>
+          <div class="duty-head">Hot</div>
           <div class="duty-head">Cold</div>
           <div class="duty-head">Unit</div>
           <div class="duty-label">Media</div>
@@ -3959,8 +3960,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       selected.forEach(({ item, index }) => {
         const summary = { ...htriSummary(item), ...htriOverridesFor(index) };
         const kind = summary["Product Type"] === "GPHE" ? "GPHE" : "BPHE";
+        const uploadBlob = item.buffer ? new Blob([item.buffer], { type: item.file.type || "application/octet-stream" }) : item.file;
         form.append(`override__${index}`, JSON.stringify(htriOverridesFor(index)));
-        form.append(`htri__${index}__${kind}`, item.file, item.file.name);
+        form.append(`htri__${index}__${kind}`, uploadBlob, item.file.name);
       });
       console.log("HTRI convert request start", { selected: selected.length });
       htriStatus.textContent = "Sending HTRI file(s) to converter...";
