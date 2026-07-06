@@ -633,7 +633,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       ],
       "Unit Data": [
         "Design Temperature", "Design / Test Pressure", "Connection Type",
-        "Soldering Material", "O.H.T.C", "Heat transfer area", "Number of plates", "Surface margin"
+        "Soldering Material", "Plate material", "Gasket Material",
+        "O.H.T.C", "Heat transfer area", "Number of plates", "Surface margin"
       ],
       "Product Properties": [
         "Density (Liquid)", "Specific heat capacity (Liquid)",
@@ -1387,7 +1388,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         if (field === "Connection Type") {
           return this.setTwoSidedRow(doc, field, task.hot || "", task.cold || "", "");
         }
-        if (["Design Temperature", "Design / Test Pressure", "Heat transfer area", "Number of plates", "Surface margin"].includes(field)) {
+        if (["Design Temperature", "Design / Test Pressure", "Heat transfer area", "Number of plates", "Surface margin", "Plate material", "Gasket Material"].includes(field)) {
           const label = field === "Design Temperature" ? "Design temperature" : field;
           if (task.mode === "convert") return this.convertRow(doc, label, task, false);
           return this.setSingleRow(doc, label, task.value || "", task.unit || "");
