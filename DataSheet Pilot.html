@@ -175,12 +175,6 @@
       resize: vertical;
       line-height: 1.35;
     }
-    .connection-switch {
-      display: flex;
-      gap: 6px;
-      margin: 2px 0 10px 128px;
-      flex-wrap: wrap;
-    }
     .duty-grid {
       display: grid;
       grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1fr) minmax(110px, .7fr);
@@ -218,7 +212,7 @@
       resize: vertical;
     }
     .connection-pane {
-      display: none;
+      display: block;
     }
     .connection-pane.active {
       display: block;
@@ -1532,14 +1526,6 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       `;
     }
 
-    function connectionScopeButtons(group, items) {
-      return `
-        <div class="connection-switch" data-connection-group="${escapeHtml(group)}">
-          ${items.map((item, index) => `<button type="button" data-connection-target="${escapeHtml(item.key)}"${index === 0 ? " class=\"active\"" : ""}>${escapeHtml(item.label)}</button>`).join("")}
-        </div>
-      `;
-    }
-
     function connectionPane(group, key, rows, active = false) {
       return `<div class="connection-pane${active ? " active" : ""}" data-connection-pane-group="${escapeHtml(group)}" data-connection-pane="${escapeHtml(key)}">${rows}</div>`;
     }
@@ -1631,17 +1617,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
             ${selectRow("Connection", "bpheAllConnection", bpheConnectionValues)}
           </div>
           <div data-bphe-connection-scope="Hot / Cold" style="display:none">
-            ${connectionScopeButtons("bpheHotCold", [{ key: "hot", label: "Hot" }, { key: "cold", label: "Cold" }])}
             ${connectionPane("bpheHotCold", "hot", selectRow("Hot Connection", "bpheHotConnection", bpheConnectionValues), true)}
             ${connectionPane("bpheHotCold", "cold", selectRow("Cold Connection", "bpheColdConnection", bpheConnectionValues))}
           </div>
           <div data-bphe-connection-scope="Individual" style="display:none">
-            ${connectionScopeButtons("bpheIndividual", [
-              { key: "hotIn", label: "Hot In" },
-              { key: "hotOut", label: "Hot Out" },
-              { key: "coldIn", label: "Cold In" },
-              { key: "coldOut", label: "Cold Out" }
-            ])}
             ${connectionPane("bpheIndividual", "hotIn", selectRow("Hot In Connection", "bpheHotInConnection", bpheConnectionValues), true)}
             ${connectionPane("bpheIndividual", "hotOut", selectRow("Hot Out Connection", "bpheHotOutConnection", bpheConnectionValues))}
             ${connectionPane("bpheIndividual", "coldIn", selectRow("Cold In Connection", "bpheColdInConnection", bpheConnectionValues))}
@@ -1656,17 +1635,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           ${scopedConnectionRows("all", "", standard)}
         </div>
         <div data-connection-scope="Hot / Cold" style="display:none">
-          ${connectionScopeButtons("hotCold", [{ key: "hot", label: "Hot" }, { key: "cold", label: "Cold" }])}
           ${connectionPane("hotCold", "hot", scopedConnectionRows("hot", "Hot", standard), true)}
           ${connectionPane("hotCold", "cold", scopedConnectionRows("cold", "Cold", standard))}
         </div>
         <div data-connection-scope="Individual" style="display:none">
-          ${connectionScopeButtons("individual", [
-            { key: "hotIn", label: "Hot In" },
-            { key: "hotOut", label: "Hot Out" },
-            { key: "coldIn", label: "Cold In" },
-            { key: "coldOut", label: "Cold Out" }
-          ])}
           ${connectionPane("individual", "hotIn", scopedConnectionRows("hotIn", "Hot In", standard), true)}
           ${connectionPane("individual", "hotOut", scopedConnectionRows("hotOut", "Hot Out", standard))}
           ${connectionPane("individual", "coldIn", scopedConnectionRows("coldIn", "Cold In", standard))}
@@ -1721,14 +1693,6 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       const mpxBpheModelSelect = container.querySelector("[data-key='bpheConnectionModel']");
       const bpheModelSelect = container.querySelector("[data-key='htriBpheConnectionModel']");
       const bpheConnectionSelect = container.querySelector("[data-key='htriBpheConnection']");
-      const activateConnectionPane = (group, target) => {
-        container.querySelectorAll(`[data-connection-group='${group}'] [data-connection-target]`).forEach(button => {
-          button.classList.toggle("active", button.dataset.connectionTarget === target);
-        });
-        container.querySelectorAll(`[data-connection-pane-group='${group}']`).forEach(pane => {
-          pane.classList.toggle("active", pane.dataset.connectionPane === target);
-        });
-      };
       const refreshMaterialRows = () => {
         container.querySelectorAll("[data-connection-material-row]").forEach(row => {
           const prefix = row.dataset.connectionPrefix;
@@ -1778,22 +1742,12 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         container.querySelectorAll("[data-connection-scope]").forEach(section => {
           section.style.display = section.dataset.connectionScope === scope ? "" : "none";
         });
-        if (scope === "Hot / Cold") activateConnectionPane("hotCold", "hot");
-        if (scope === "Individual") activateConnectionPane("individual", "hotIn");
         const bpheScope = bpheScopeSelect ? bpheScopeSelect.value : "All same";
         container.querySelectorAll("[data-bphe-connection-scope]").forEach(section => {
           section.style.display = section.dataset.bpheConnectionScope === bpheScope ? "" : "none";
         });
-        if (bpheScope === "Hot / Cold") activateConnectionPane("bpheHotCold", "hot");
-        if (bpheScope === "Individual") activateConnectionPane("bpheIndividual", "hotIn");
         refreshMaterialRows();
       };
-      container.querySelectorAll("[data-connection-target]").forEach(button => {
-        button.addEventListener("click", () => {
-          const group = button.closest("[data-connection-group]").dataset.connectionGroup;
-          activateConnectionPane(group, button.dataset.connectionTarget);
-        });
-      });
       container.querySelectorAll("[data-key$='ConnectionType']").forEach(select => {
         select.addEventListener("change", refreshMaterialRows);
       });
@@ -3493,17 +3447,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
             ${scopedConnectionRows("all", "", standard)}
           </div>
           <div data-connection-scope="Hot / Cold" style="display:none">
-            ${connectionScopeButtons("htriHotCold", [{ key: "hot", label: "Hot" }, { key: "cold", label: "Cold" }])}
             ${connectionPane("htriHotCold", "hot", scopedConnectionRows("hot", "Hot", standard), true)}
             ${connectionPane("htriHotCold", "cold", scopedConnectionRows("cold", "Cold", standard))}
           </div>
           <div data-connection-scope="Individual" style="display:none">
-            ${connectionScopeButtons("htriIndividual", [
-              { key: "hotIn", label: "Hot In" },
-              { key: "hotOut", label: "Hot Out" },
-              { key: "coldIn", label: "Cold In" },
-              { key: "coldOut", label: "Cold Out" }
-            ])}
             ${connectionPane("htriIndividual", "hotIn", scopedConnectionRows("hotIn", "Hot In", standard), true)}
             ${connectionPane("htriIndividual", "hotOut", scopedConnectionRows("hotOut", "Hot Out", standard))}
             ${connectionPane("htriIndividual", "coldIn", scopedConnectionRows("coldIn", "Cold In", standard))}
