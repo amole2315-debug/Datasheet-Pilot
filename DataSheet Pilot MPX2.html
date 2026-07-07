@@ -747,7 +747,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       "Connection": ["Connection / Material"],
       "Duty": ["Duty Values"],
       "Design": ["Design Values"],
-      "Unit Conversion": ["Property Unit Group", "Unit Conversion"]
+      "Unit Conversion": ["J/cal Target Conversion", "Unit Conversion"]
     };
 
     const FIELD_AVAILABILITY = {};
@@ -795,7 +795,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       ]
     };
     const HEAT_CAPACITY_UNITS = [
-      { unit: "kcal/h", from: ["kcal/h", "kcal/hr"] },
+      { unit: "kcal/hr", from: ["kcal/h", "kcal/hr"] },
       { unit: "kW", from: ["kW"] },
       { unit: "W", from: ["W"] },
       { unit: "J/s", from: ["J/s", "J"] },
@@ -1857,8 +1857,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if (field === "Plate material") {
         return selectRow("Material", "value", ["A240-304", "A240-316L", "Titanium", "C-276"]);
       }
-      if (field === "Property Unit Group") {
-        return selectRow("Unit family", "value", ["J", "kcal"]);
+      if (field === "J/cal Target Conversion") {
+        return selectRow("Target family", "value", ["cal target", "W/J target"]);
       }
       return inputRow("Value", "value") + inputRow("Unit", "unit");
     }
@@ -2004,7 +2004,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if (task.field === "Design Values") return `${task.field}${scope}`;
       if (task.field === "Material") return `${task.field}${scope}`;
       if (task.field === "Unit Conversion") return `${task.unitField || "Unit"} -> ${task.unitTarget || ""}${scope}`;
-      if (task.field === "Property Unit Group") return `${task.field}: ${task.value || "J"}${scope}`;
+      if (task.field === "J/cal Target Conversion") return `${task.field}: ${task.value || "cal target"}${scope}`;
       if (isConnectionField(task.field)) {
         const detail = task.productScope === "BPHE"
           ? [task.productScope, task.bpheConnectionScope, task.bpheConnectionModel].filter(Boolean).join(" | ")
@@ -2183,8 +2183,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           if (task.hot || task.cold) return this.setTwoSidedRow(doc, field, task.hot || "", task.cold || "", task.unit || "");
           return this.setSingleRow(doc, field, task.value || "", task.unit || "");
         }
-        if (field === "Property Unit Group") {
-          return this.convertPropertyUnitGroup(doc, task.value || "J");
+        if (field === "J/cal Target Conversion") {
+          return this.convertPropertyUnitGroup(doc, task.value || "cal target");
         }
         return false;
       }
@@ -2319,12 +2319,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       }
 
       convertPropertyUnitGroup(doc, family) {
-        const wantsKcal = String(family || "").toLowerCase().includes("kcal");
+        const wantsCal = String(family || "").toLowerCase().includes("cal");
         const targets = [
-          { labels: ["O.H.T.C", "OHTC"], field: "O.H.T.C", unit: wantsKcal ? "kcal/(m2*h*K)" : "W/(m2*K)", twoSided: false },
-          { labels: ["Specific heat capacity (Liquid)", "Specific heat capacity (Liquid/Vapor)"], field: "Specific heat capacity (Liquid)", unit: wantsKcal ? "kcal/(kg*K)" : "kJ/(kg*K)", twoSided: false },
-          { labels: ["Thermal conductivity (Liquid)", "Thermal conductivity (Liquid/Vapor)"], field: "Thermal conductivity (Liquid)", unit: wantsKcal ? "kcal/(m*h*K)" : "W/(m*K)", twoSided: false },
-          { labels: ["Latent heat"], field: "Latent heat", unit: wantsKcal ? "kcal/kg" : "kJ/kg", twoSided: false }
+          { labels: ["Heat capacity"], field: "Heat capacity", unit: wantsCal ? "kcal/hr" : "kW", twoSided: true },
+          { labels: ["O.H.T.C", "OHTC"], field: "O.H.T.C", unit: wantsCal ? "kcal/(m2*h*K)" : "W/(m2*K)", twoSided: false },
+          { labels: ["Specific heat capacity (Liquid)", "Specific heat capacity (Liquid/Vapor)"], field: "Specific heat capacity (Liquid)", unit: wantsCal ? "kcal/(kg*K)" : "kJ/(kg*K)", twoSided: false },
+          { labels: ["Thermal conductivity (Liquid)", "Thermal conductivity (Liquid/Vapor)"], field: "Thermal conductivity (Liquid)", unit: wantsCal ? "kcal/(m*h*K)" : "W/(m*K)", twoSided: false },
+          { labels: ["Latent heat"], field: "Latent heat", unit: wantsCal ? "kcal/kg" : "kJ/kg", twoSided: false }
         ];
         let changed = false;
         for (const target of targets) {
@@ -2752,7 +2753,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
     function heatCapacityFactorToW(unit) {
       const value = canonicalUnit(unit);
-      if (value === "kcal/h") return 4186.8 / 3600;
+      if (value === "kcal/h" || value === "kcal/hr") return 4186.8 / 3600;
       if (value === "kw") return 1000;
       if (value === "w" || value === "j/s" || value === "j") return 1;
       if (value === "btu/h" || value === "btu") return 0.29307107;
