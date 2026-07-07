@@ -455,6 +455,12 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         <button id="downloadZipBtn">ZIP</button>
         <button id="downloadFilesBtn" class="active">Files</button>
         <button id="downloadBtn" class="primary">Download</button>
+        <select id="mergePageLimit" title="Pages from each DOCX">
+          <option value="1">1 page</option>
+          <option value="2">2 pages</option>
+          <option value="3" selected>3 pages</option>
+        </select>
+        <button id="mergeDocxBtn">Merge DOCX</button>
       </div>
       <div class="side-body">
         <div class="field-row">
@@ -952,6 +958,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     const cancelTaskEditListBtn = document.getElementById("cancelTaskEditListBtn");
     const downloadZipBtn = document.getElementById("downloadZipBtn");
     const downloadFilesBtn = document.getElementById("downloadFilesBtn");
+    const mergePageLimit = document.getElementById("mergePageLimit");
+    const mergeDocxBtn = document.getElementById("mergeDocxBtn");
     const htriDownloadDatasheetBtn = document.getElementById("htriDownloadDatasheetBtn");
     const htriDownloadZipBtn = document.getElementById("htriDownloadZipBtn");
 
@@ -3273,6 +3281,284 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if (errors.length) alert(`Saved ${corrected.length} file(s), with errors:\n\n${errors.slice(0, 8).join("\n")}`);
     }
 
+    async function buildSelectedDocxOutputs() {
+      const selectedFiles = files.map((item, index) => ({ item, index })).filter(entry => entry.item.selected !== false);
+      if (!selectedFiles.length) {
+        alert("Select at least one Word file to merge.");
+        return null;
+      }
+      const outputs = [];
+      const errors = [];
+      for (const { item, index } of selectedFiles) {
+        try {
+          const editor = await DocxEditor.fromFile(item);
+          const itemTasks = tasks.filter(task => task.targets && task.targets.includes(index));
+          for (const task of itemTasks) await editor.applyTask({ ...task });
+          outputs.push({
+            name: await outputNameFor(item, editor),
+            blob: await editor.bytes()
+          });
+        } catch (error) {
+          errors.push(`${item.name}: ${readableError(error)}`);
+        }
+      }
+      if (!outputs.length) {
+        alert(`No files available to merge.\n\n${errors.join("\n")}`);
+        return null;
+      }
+      return { outputs, errors };
+    }
+
+    async function downloadMergedDocx() {
+      const pageLimit = Math.max(1, Math.min(3, Number(mergePageLimit.value) || 3));
+      const result = await buildSelectedDocxOutputs();
+      if (!result) return;
+      try {
+        if (mergeDocxBtn) mergeDocxBtn.disabled = true;
+        statusEl.textContent = `Merging ${result.outputs.length} Word file(s)...`;
+        const blob = await mergeDocxBlobs(result.outputs, pageLimit);
+        triggerDownload(blob, `merged_datasheets_${pageLimit}page.docx`);
+        await preview();
+        statusEl.textContent = `Merged ${result.outputs.length} Word file(s).`;
+        if (result.errors.length) alert(`Merged ${result.outputs.length} file(s), with errors:\n\n${result.errors.slice(0, 8).join("\n")}`);
+      } catch (error) {
+        alert("DOCX merge failed:\n" + (error.message || error));
+        statusEl.textContent = "DOCX merge failed.";
+      } finally {
+        if (mergeDocxBtn) mergeDocxBtn.disabled = false;
+      }
+    }
+
+    async function mergeDocxBlobs(docxFiles, pageLimit) {
+      const baseZip = await JSZip.loadAsync(await docxFiles[0].blob.arrayBuffer());
+      const baseDoc = await parseZipXml(baseZip, "word/document.xml");
+      const baseBody = baseDoc.getElementsByTagNameNS("*", "body")[0];
+      const baseRelsDoc = await parseOrCreateDocumentRels(baseZip);
+      const contentTypesDoc = await parseZipXml(baseZip, "[Content_Types].xml");
+      const baseSectPr = findBodySectPr(baseBody);
+      const firstNodes = bodyNodesForPageLimit(baseBody, pageLimit).map(node => node.cloneNode(true));
+      while (baseBody.firstChild) baseBody.removeChild(baseBody.firstChild);
+
+      for (let index = 0; index < docxFiles.length; index += 1) {
+        const sourceZip = index === 0 ? baseZip : await JSZip.loadAsync(await docxFiles[index].blob.arrayBuffer());
+        const sourceDoc = index === 0 ? baseDoc : await parseZipXml(sourceZip, "word/document.xml");
+        const sourceBody = sourceDoc.getElementsByTagNameNS("*", "body")[0];
+        const sourceRelsDoc = await parseOrCreateDocumentRels(sourceZip);
+        const nodes = index === 0 ? firstNodes : bodyNodesForPageLimit(sourceBody, pageLimit);
+        const relationshipMap = index === 0
+          ? {}
+          : await copyReferencedRelationships(sourceZip, baseZip, sourceRelsDoc, baseRelsDoc, contentTypesDoc, nodes, index);
+        nodes.forEach(node => {
+          const imported = baseDoc.importNode(node, true);
+          remapRelationshipIds(imported, relationshipMap);
+          baseBody.appendChild(imported);
+        });
+        if (index < docxFiles.length - 1 && !nodesEndWithPageBreak(nodes)) {
+          baseBody.appendChild(createPageBreakParagraph(baseDoc));
+        }
+      }
+
+      baseBody.appendChild(baseSectPr ? baseDoc.importNode(baseSectPr, true) : createSectPr(baseDoc));
+      baseZip.file("word/document.xml", new XMLSerializer().serializeToString(baseDoc));
+      baseZip.file("word/_rels/document.xml.rels", new XMLSerializer().serializeToString(baseRelsDoc));
+      baseZip.file("[Content_Types].xml", new XMLSerializer().serializeToString(contentTypesDoc));
+      return await baseZip.generateAsync({ type: "blob" });
+    }
+
+    async function parseZipXml(zip, path) {
+      const file = zip.file(path);
+      if (!file) throw new Error(`${path} not found`);
+      return new DOMParser().parseFromString(await file.async("text"), "application/xml");
+    }
+
+    async function parseOrCreateDocumentRels(zip) {
+      const relPath = "word/_rels/document.xml.rels";
+      const file = zip.file(relPath);
+      if (file) return new DOMParser().parseFromString(await file.async("text"), "application/xml");
+      return new DOMParser().parseFromString(
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>',
+        "application/xml"
+      );
+    }
+
+    function findBodySectPr(body) {
+      return [...body.childNodes].reverse().find(node => node.nodeType === 1 && node.localName === "sectPr") || null;
+    }
+
+    function bodyNodesForPageLimit(body, pageLimit) {
+      const nodes = [];
+      let pageBreaks = 0;
+      for (const node of [...body.childNodes]) {
+        if (node.nodeType === 1 && node.localName === "sectPr") continue;
+        nodes.push(node);
+        if (nodeHasPageBoundary(node)) {
+          pageBreaks += 1;
+          if (pageBreaks >= pageLimit) break;
+        }
+      }
+      return nodes;
+    }
+
+    function nodeHasPageBoundary(node) {
+      if (node.nodeType !== 1) return false;
+      if (node.localName === "sectPr") return true;
+      if ([...node.getElementsByTagNameNS("*", "lastRenderedPageBreak")].length) return true;
+      return [...node.getElementsByTagNameNS("*", "br")].some(br => {
+        const type = br.getAttributeNS("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "type") || br.getAttribute("w:type");
+        return type === "page";
+      });
+    }
+
+    function nodesEndWithPageBreak(nodes) {
+      const last = [...nodes].reverse().find(node => node.nodeType === 1);
+      if (!last) return false;
+      return [...last.getElementsByTagNameNS("*", "br")].some(br => {
+        const type = br.getAttributeNS("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "type") || br.getAttribute("w:type");
+        return type === "page";
+      });
+    }
+
+    function createPageBreakParagraph(doc) {
+      const wNs = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+      const p = doc.createElementNS(wNs, "w:p");
+      const r = doc.createElementNS(wNs, "w:r");
+      const br = doc.createElementNS(wNs, "w:br");
+      br.setAttributeNS(wNs, "w:type", "page");
+      r.appendChild(br);
+      p.appendChild(r);
+      return p;
+    }
+
+    function createSectPr(doc) {
+      return doc.createElementNS("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "w:sectPr");
+    }
+
+    async function copyReferencedRelationships(sourceZip, baseZip, sourceRelsDoc, baseRelsDoc, contentTypesDoc, nodes, docIndex) {
+      const sourceRels = relationshipMapFromDoc(sourceRelsDoc);
+      const referencedIds = referencedRelationshipIds(nodes);
+      const map = {};
+      for (const oldId of referencedIds) {
+        const rel = sourceRels[oldId];
+        if (!rel) continue;
+        const newId = nextRelationshipId(baseRelsDoc);
+        map[oldId] = newId;
+        const targetMode = rel.getAttribute("TargetMode") || "";
+        const target = rel.getAttribute("Target") || "";
+        let nextTarget = target;
+        if (targetMode.toLowerCase() !== "external") {
+          const sourcePath = resolveDocxPath("word/document.xml", target);
+          const sourceFile = sourceZip.file(sourcePath);
+          if (sourceFile) {
+            nextTarget = uniqueMergedTarget(baseZip, target, docIndex);
+            baseZip.file(resolveDocxPath("word/document.xml", nextTarget), await sourceFile.async("arraybuffer"));
+            ensureContentTypeForTarget(contentTypesDoc, nextTarget);
+          }
+        }
+        appendRelationship(baseRelsDoc, newId, rel.getAttribute("Type") || "", nextTarget, targetMode);
+      }
+      return map;
+    }
+
+    function relationshipMapFromDoc(relsDoc) {
+      const map = {};
+      [...relsDoc.getElementsByTagNameNS("*", "Relationship")].forEach(rel => {
+        map[rel.getAttribute("Id")] = rel;
+      });
+      return map;
+    }
+
+    function referencedRelationshipIds(nodes) {
+      const ids = new Set();
+      nodes.forEach(node => {
+        if (node.nodeType !== 1) return;
+        [...node.getElementsByTagName("*"), node].forEach(element => {
+          for (const attr of [...element.attributes]) {
+            if (attr.namespaceURI && attr.namespaceURI.includes("/relationships")) ids.add(attr.value);
+          }
+        });
+      });
+      return ids;
+    }
+
+    function remapRelationshipIds(node, relationshipMap) {
+      if (!Object.keys(relationshipMap).length || node.nodeType !== 1) return;
+      [...node.getElementsByTagName("*"), node].forEach(element => {
+        for (const attr of [...element.attributes]) {
+          if (attr.namespaceURI && attr.namespaceURI.includes("/relationships") && relationshipMap[attr.value]) {
+            attr.value = relationshipMap[attr.value];
+          }
+        }
+      });
+    }
+
+    function nextRelationshipId(relsDoc) {
+      const used = new Set([...relsDoc.getElementsByTagNameNS("*", "Relationship")].map(rel => rel.getAttribute("Id")));
+      let index = used.size + 1;
+      while (used.has(`rId${index}`)) index += 1;
+      return `rId${index}`;
+    }
+
+    function appendRelationship(relsDoc, id, type, target, targetMode) {
+      const ns = "http://schemas.openxmlformats.org/package/2006/relationships";
+      const rel = relsDoc.createElementNS(ns, "Relationship");
+      rel.setAttribute("Id", id);
+      rel.setAttribute("Type", type);
+      rel.setAttribute("Target", target);
+      if (targetMode) rel.setAttribute("TargetMode", targetMode);
+      relsDoc.documentElement.appendChild(rel);
+    }
+
+    function resolveDocxPath(basePath, target) {
+      if (!target) return "";
+      if (target.startsWith("/")) return target.replace(/^\/+/, "");
+      const parts = basePath.split("/");
+      parts.pop();
+      target.split("/").forEach(part => {
+        if (!part || part === ".") return;
+        if (part === "..") parts.pop();
+        else parts.push(part);
+      });
+      return parts.join("/");
+    }
+
+    function uniqueMergedTarget(zip, target, docIndex) {
+      const clean = String(target || "").replace(/^\/+/, "");
+      const folder = clean.includes("/") ? clean.slice(0, clean.lastIndexOf("/") + 1) : "";
+      const file = clean.includes("/") ? clean.slice(clean.lastIndexOf("/") + 1) : clean;
+      const dot = file.lastIndexOf(".");
+      const stem = dot >= 0 ? file.slice(0, dot) : file;
+      const ext = dot >= 0 ? file.slice(dot) : "";
+      let candidate = `${folder}merged${docIndex}_${stem}${ext}`;
+      let counter = 1;
+      while (zip.file(resolveDocxPath("word/document.xml", candidate))) {
+        candidate = `${folder}merged${docIndex}_${stem}_${counter}${ext}`;
+        counter += 1;
+      }
+      return candidate;
+    }
+
+    function ensureContentTypeForTarget(contentTypesDoc, target) {
+      const extMatch = String(target || "").match(/\.([^.\/]+)$/);
+      if (!extMatch) return;
+      const ext = extMatch[1].toLowerCase();
+      const defaults = [...contentTypesDoc.getElementsByTagNameNS("*", "Default")];
+      if (defaults.some(node => String(node.getAttribute("Extension") || "").toLowerCase() === ext)) return;
+      const commonTypes = {
+        png: "image/png",
+        jpg: "image/jpeg",
+        jpeg: "image/jpeg",
+        gif: "image/gif",
+        bmp: "image/bmp",
+        emf: "image/x-emf",
+        wmf: "image/x-wmf"
+      };
+      if (!commonTypes[ext]) return;
+      const node = contentTypesDoc.createElementNS("http://schemas.openxmlformats.org/package/2006/content-types", "Default");
+      node.setAttribute("Extension", ext);
+      node.setAttribute("ContentType", commonTypes[ext]);
+      contentTypesDoc.documentElement.appendChild(node);
+    }
+
     function setDownloadMode(mode) {
       downloadMode = mode;
       downloadZipBtn.classList.toggle("active", mode === "zip");
@@ -4557,6 +4843,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     document.getElementById("downloadZipBtn").addEventListener("click", () => setDownloadMode("zip"));
     document.getElementById("downloadFilesBtn").addEventListener("click", () => setDownloadMode("files"));
     document.getElementById("downloadBtn").addEventListener("click", downloadSelectedMode);
+    if (mergeDocxBtn) mergeDocxBtn.addEventListener("click", downloadMergedDocx);
     document.getElementById("htriUploadInput").addEventListener("change", event => { loadHtriFiles(event.target.files); event.target.value = ""; });
     document.getElementById("htriBpheTemplateInput").addEventListener("change", event => {
       if (event.target.files[0]) loadHtriTemplate(event.target.files[0], "BPHE");
