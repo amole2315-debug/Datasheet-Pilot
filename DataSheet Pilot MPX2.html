@@ -1243,6 +1243,20 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return unit;
     }
 
+    function propertyConversionLabels(field) {
+      if (field === "Specific heat capacity (Liquid)") {
+        return ["Specific heat capacity (Liquid/Vapor)", "Specific heat capacity (Liquid)", "Specific heat capacity"];
+      }
+      if (field === "Thermal conductivity (Liquid)") {
+        return ["Thermal conductivity (Liquid/Vapor)", "Thermal conductivity (Liquid)", "Thermal conductivity"];
+      }
+      return [field];
+    }
+
+    function propertyConvertsAllValueCells(field) {
+      return field === "Specific heat capacity (Liquid)" || field === "Thermal conductivity (Liquid)";
+    }
+
     function fileDisplayName(file) {
       return file.webkitRelativePath || file.name;
     }
@@ -2189,7 +2203,15 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           return this.setSingleRow(doc, label, task.value || "", task.unit || "");
         }
         if (["Heat capacity", "O.H.T.C", "Density (Liquid)", "Specific heat capacity (Liquid)", "Thermal conductivity (Liquid)", "Viscosity (Liquid)", "Latent heat"].includes(field)) {
-          if (task.mode === "convert") return this.convertRow(doc, field, task, !field.toLowerCase().includes("capacity") || field === "Heat capacity");
+          if (task.mode === "convert") {
+            let changed = false;
+            for (const label of propertyConversionLabels(field)) {
+              if (this.convertRow(doc, label, { ...task, allValues: propertyConvertsAllValueCells(field) }, !field.toLowerCase().includes("capacity") || field === "Heat capacity")) {
+                changed = true;
+              }
+            }
+            return changed;
+          }
           if (task.hot || task.cold) return this.setTwoSidedRow(doc, field, task.hot || "", task.cold || "", task.unit || "");
           return this.setSingleRow(doc, field, task.value || "", task.unit || "");
         }
@@ -2334,8 +2356,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         const targets = [
           { labels: ["Heat capacity"], field: "Heat capacity", unit: wantsCal ? "kcal/hr" : "kW", twoSided: true },
           { labels: ["O.H.T.C", "OHTC"], field: "O.H.T.C", unit: wantsCal ? "kcal/(m2*h*K)" : "W/(m2*K)", twoSided: false },
-          { labels: ["Specific heat capacity (Liquid)", "Specific heat capacity (Liquid/Vapor)"], field: "Specific heat capacity (Liquid)", unit: wantsCal ? "kcal/(kg*K)" : "kJ/(kg*K)", allValues: true },
-          { labels: ["Thermal conductivity (Liquid)", "Thermal conductivity (Liquid/Vapor)"], field: "Thermal conductivity (Liquid)", unit: wantsCal ? "kcal/(m*h*K)" : "W/(m*K)", allValues: true },
+          { labels: propertyConversionLabels("Specific heat capacity (Liquid)"), field: "Specific heat capacity (Liquid)", unit: wantsCal ? "kcal/(kg*K)" : "kJ/(kg*K)", allValues: true },
+          { labels: propertyConversionLabels("Thermal conductivity (Liquid)"), field: "Thermal conductivity (Liquid)", unit: wantsCal ? "kcal/(m*h*K)" : "W/(m*K)", allValues: true },
           { labels: ["Latent heat"], field: "Latent heat", unit: wantsCal ? "kcal/kg" : "kJ/kg", twoSided: false }
         ];
         let changed = false;
