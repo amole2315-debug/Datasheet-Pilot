@@ -471,6 +471,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         <div id="dynamicForm"></div>
         <div class="form-actions">
           <button id="applyTaskBtn" class="primary">Apply</button>
+          <button id="cancelTaskEditBtn" style="display:none">Cancel</button>
         </div>
       </div>
     </section>
@@ -491,6 +492,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           <div class="task-actions">
             <button id="editTaskBtn">Edit</button>
             <button id="removeTaskBtn">Remove</button>
+            <button id="saveTaskEditBtn" class="primary" style="display:none">Save</button>
+            <button id="cancelTaskEditListBtn" style="display:none">Cancel</button>
           </div>
         </div>
       </div>
@@ -548,6 +551,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           <div id="htriDynamicForm"></div>
           <div class="form-actions">
             <button id="htriApplyTaskBtn" class="primary">Apply</button>
+            <button id="htriCancelTaskEditBtn" style="display:none">Cancel</button>
           </div>
         </div>
       </section>
@@ -568,6 +572,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
             <div class="task-actions">
               <button id="htriEditTaskBtn">Edit</button>
               <button id="htriRemoveTaskBtn">Remove</button>
+              <button id="htriSaveTaskEditBtn" class="primary" style="display:none">Save</button>
+              <button id="htriCancelTaskEditListBtn" style="display:none">Cancel</button>
             </div>
           </div>
         </div>
@@ -925,6 +931,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     const tasks = [];
     let selectedTaskIndex = -1;
     let editingTaskIndex = -1;
+    let editSelectionSnapshot = null;
     let downloadMode = "files";
     let htriDownloadMode = "datasheet";
     let isReorderingFiles = false;
@@ -938,6 +945,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     const previewText = document.getElementById("previewText");
     const renameOutput = document.getElementById("renameOutput");
     const applyTaskBtn = document.getElementById("applyTaskBtn");
+    const cancelTaskEditBtn = document.getElementById("cancelTaskEditBtn");
+    const editTaskBtn = document.getElementById("editTaskBtn");
+    const removeTaskBtn = document.getElementById("removeTaskBtn");
+    const saveTaskEditBtn = document.getElementById("saveTaskEditBtn");
+    const cancelTaskEditListBtn = document.getElementById("cancelTaskEditListBtn");
     const downloadZipBtn = document.getElementById("downloadZipBtn");
     const downloadFilesBtn = document.getElementById("downloadFilesBtn");
     const htriDownloadDatasheetBtn = document.getElementById("htriDownloadDatasheetBtn");
@@ -1954,6 +1966,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         tasks[editingTaskIndex] = task;
         selectedTaskIndex = editingTaskIndex;
         editingTaskIndex = -1;
+        editSelectionSnapshot = null;
       } else {
         tasks.push(task);
         selectedTaskIndex = tasks.length - 1;
@@ -1982,6 +1995,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       tasks.splice(selectedTaskIndex, 1);
       selectedTaskIndex = -1;
       editingTaskIndex = -1;
+      editSelectionSnapshot = null;
       renderTasks();
       updateApplyButton();
       preview();
@@ -1994,6 +2008,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       }
       const task = tasks[selectedTaskIndex];
       editingTaskIndex = selectedTaskIndex;
+      editSelectionSnapshot = files.map(file => file.selected !== false);
       files.forEach((file, index) => {
         file.selected = task.targets && task.targets.includes(index);
       });
@@ -2002,6 +2017,21 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       renderDynamicForm(task.mode === "convert" ? "Convert unit" : "Set value");
       setFormValues(task);
       updateApplyButton();
+    }
+
+    function cancelTaskEdit() {
+      if (editSelectionSnapshot) {
+        files.forEach((file, index) => {
+          file.selected = editSelectionSnapshot[index] !== false;
+        });
+      }
+      editingTaskIndex = -1;
+      editSelectionSnapshot = null;
+      renderFiles();
+      refreshFieldSelect();
+      renderTasks();
+      updateApplyButton();
+      preview();
     }
 
     function setFormValues(task) {
@@ -2051,7 +2081,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }
 
     function updateApplyButton() {
-      applyTaskBtn.textContent = editingTaskIndex >= 0 ? "Update" : "Apply";
+      const editing = editingTaskIndex >= 0;
+      applyTaskBtn.textContent = editing ? "Save" : "Apply";
+      cancelTaskEditBtn.style.display = editing ? "" : "none";
+      editTaskBtn.style.display = editing ? "none" : "";
+      removeTaskBtn.style.display = editing ? "none" : "";
+      saveTaskEditBtn.style.display = editing ? "" : "none";
+      cancelTaskEditListBtn.style.display = editing ? "" : "none";
     }
 
     function taskLabel(task) {
@@ -2126,7 +2162,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       tasks.forEach((task, index) => {
         const div = document.createElement("div");
         div.className = `task-item ${index === selectedTaskIndex ? "selected" : ""}`;
-        div.draggable = true;
+        div.draggable = editingTaskIndex < 0;
         div.dataset.index = String(index);
         div.textContent = taskLabel(task);
         div.addEventListener("click", () => {
@@ -3284,6 +3320,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     const htriTasks = [];
     let htriSelectedTaskIndex = -1;
     let htriEditingTaskIndex = -1;
+    let htriEditSelectionSnapshot = null;
     const HTRI_FIELD_GROUPS = {
       "Basic": ["Basic Info"],
       "Material": ["Material"],
@@ -3302,6 +3339,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     const htriTaskList = document.getElementById("htriTaskList");
     const htriPreviewText = document.getElementById("htriPreviewText");
     const htriApplyTaskBtn = document.getElementById("htriApplyTaskBtn");
+    const htriCancelTaskEditBtn = document.getElementById("htriCancelTaskEditBtn");
+    const htriEditTaskBtn = document.getElementById("htriEditTaskBtn");
+    const htriRemoveTaskBtn = document.getElementById("htriRemoveTaskBtn");
+    const htriSaveTaskEditBtn = document.getElementById("htriSaveTaskEditBtn");
+    const htriCancelTaskEditListBtn = document.getElementById("htriCancelTaskEditListBtn");
     const htriTemplates = { BPHE: null, GPHE: null };
 
     function htriTemplateWorkbookFromBuffer(buffer) {
@@ -3854,6 +3896,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         htriTasks[htriEditingTaskIndex] = task;
         htriSelectedTaskIndex = htriEditingTaskIndex;
         htriEditingTaskIndex = -1;
+        htriEditSelectionSnapshot = null;
       } else {
         htriTasks.push(task);
         htriSelectedTaskIndex = htriTasks.length - 1;
@@ -3868,7 +3911,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       htriTasks.forEach((task, index) => {
         const div = document.createElement("div");
         div.className = `task-item ${index === htriSelectedTaskIndex ? "selected" : ""}`;
-        div.draggable = true;
+        div.draggable = htriEditingTaskIndex < 0;
         div.dataset.index = String(index);
         div.textContent = taskLabel(task);
         div.addEventListener("click", () => {
@@ -3885,8 +3928,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       htriTasks.splice(htriSelectedTaskIndex, 1);
       htriSelectedTaskIndex = -1;
       htriEditingTaskIndex = -1;
+      htriEditSelectionSnapshot = null;
       renderHtriTasks();
       updateHtriApplyButton();
+      renderHtriPreview();
     }
 
     function editHtriTask() {
@@ -3896,6 +3941,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       }
       const task = htriTasks[htriSelectedTaskIndex];
       htriEditingTaskIndex = htriSelectedTaskIndex;
+      htriEditSelectionSnapshot = htriFiles.map(file => file.selected !== false);
       htriFiles.forEach((file, index) => {
         file.selected = task.targets && task.targets.includes(index);
       });
@@ -3911,8 +3957,29 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       updateHtriApplyButton();
     }
 
+    function cancelHtriTaskEdit() {
+      if (htriEditSelectionSnapshot) {
+        htriFiles.forEach((file, index) => {
+          file.selected = htriEditSelectionSnapshot[index] !== false;
+        });
+      }
+      htriEditingTaskIndex = -1;
+      htriEditSelectionSnapshot = null;
+      renderHtriFiles();
+      refreshHtriFieldSelect();
+      renderHtriTasks();
+      updateHtriApplyButton();
+      renderHtriPreview();
+    }
+
     function updateHtriApplyButton() {
-      htriApplyTaskBtn.textContent = htriEditingTaskIndex >= 0 ? "Update" : "Apply";
+      const editing = htriEditingTaskIndex >= 0;
+      htriApplyTaskBtn.textContent = editing ? "Save" : "Apply";
+      htriCancelTaskEditBtn.style.display = editing ? "" : "none";
+      htriEditTaskBtn.style.display = editing ? "none" : "";
+      htriRemoveTaskBtn.style.display = editing ? "none" : "";
+      htriSaveTaskEditBtn.style.display = editing ? "" : "none";
+      htriCancelTaskEditListBtn.style.display = editing ? "" : "none";
     }
 
     function htriSheet(workbook, pattern) {
@@ -4480,8 +4547,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     });
     document.getElementById("deleteSelectedBtn").addEventListener("click", deleteSelectedFiles);
     document.getElementById("applyTaskBtn").addEventListener("click", applyTaskFromForm);
+    document.getElementById("cancelTaskEditBtn").addEventListener("click", cancelTaskEdit);
     document.getElementById("editTaskBtn").addEventListener("click", editTask);
     document.getElementById("removeTaskBtn").addEventListener("click", removeTask);
+    document.getElementById("saveTaskEditBtn").addEventListener("click", applyTaskFromForm);
+    document.getElementById("cancelTaskEditListBtn").addEventListener("click", cancelTaskEdit);
     document.getElementById("downloadZipBtn").addEventListener("click", () => setDownloadMode("zip"));
     document.getElementById("downloadFilesBtn").addEventListener("click", () => setDownloadMode("files"));
     document.getElementById("downloadBtn").addEventListener("click", downloadSelectedMode);
@@ -4514,8 +4584,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     });
     document.getElementById("htriDeleteSelectedBtn").addEventListener("click", deleteSelectedHtriFiles);
     document.getElementById("htriApplyTaskBtn").addEventListener("click", applyHtriTaskFromForm);
+    document.getElementById("htriCancelTaskEditBtn").addEventListener("click", cancelHtriTaskEdit);
     document.getElementById("htriEditTaskBtn").addEventListener("click", editHtriTask);
     document.getElementById("htriRemoveTaskBtn").addEventListener("click", removeHtriTask);
+    document.getElementById("htriSaveTaskEditBtn").addEventListener("click", applyHtriTaskFromForm);
+    document.getElementById("htriCancelTaskEditListBtn").addEventListener("click", cancelHtriTaskEdit);
     document.getElementById("htriDownloadDatasheetBtn").addEventListener("click", () => setHtriDownloadMode("datasheet"));
     document.getElementById("htriDownloadZipBtn").addEventListener("click", () => setHtriDownloadMode("zip"));
     document.getElementById("htriDownloadBtn").addEventListener("click", event => {
