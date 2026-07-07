@@ -2573,7 +2573,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         if (!value) return false;
         let changed = false;
         const labelPattern = label.replace(/\s+/g, "\\s+");
-        const pattern = new RegExp(`(${labelPattern}\\s*:\\s*)[^\\r\\n]*`, "i");
+        const pattern = new RegExp(`(${labelPattern}\\s*:\\s*)\\S[^\\r\\n]*`, "i");
         for (const cell of doc.getElementsByTagNameNS("*", "tc")) {
           const old = this.cellText(cell);
           if (!pattern.test(old)) continue;
