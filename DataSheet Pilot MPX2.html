@@ -1875,6 +1875,16 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           return;
         }
         targets.splice(0, targets.length, ...scopedTargets);
+        if (task.productScope === "BPHE") {
+          const modelTargets = filterBpheTargetsByConnectionModel(targets, task.bpheConnectionModel);
+          if (!modelTargets.targets.length) {
+            alert(`No selected BPHE files match ${task.bpheConnectionModel}.`);
+            return;
+          }
+          targets.splice(0, targets.length, ...modelTargets.targets);
+          task.skippedTargets = modelTargets.skipped;
+          task.skippedReason = `${task.bpheConnectionModel} connection only`;
+        }
       }
       if (task.mode === "convert" && (!task.unitTarget || task.unitTarget === NO_UNIT_TARGET)) {
         alert("Selected file(s) do not have a matching unit for this field.");
@@ -1894,6 +1904,20 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       renderTasks();
       updateApplyButton();
       preview();
+    }
+
+    function filterBpheTargetsByConnectionModel(targets, connectionModel) {
+      const taskFamily = bpheConnectionFamily(connectionModel);
+      if (!taskFamily) return { targets, skipped: [] };
+      const matched = [];
+      const skipped = [];
+      targets.forEach(index => {
+        const item = files[index];
+        const itemFamily = bpheConnectionFamily(`${item.result || ""} ${item.name || ""}`);
+        if (itemFamily === taskFamily) matched.push(index);
+        else skipped.push({ index, family: itemFamily || "Unknown", expected: taskFamily });
+      });
+      return { targets: matched, skipped };
     }
 
     function removeTask() {
@@ -1988,7 +2012,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         const detail = task.productScope === "BPHE"
           ? [task.productScope, task.bpheConnectionScope, task.bpheConnectionModel].filter(Boolean).join(" | ")
           : [task.productScope, task.standard, task.connectionScope, task.connectionPlateMaterial].filter(Boolean).join(" | ");
-        return `${task.field}${detail ? `: ${detail}` : ""}${scope}`;
+        const skipped = task.skippedTargets && task.skippedTargets.length ? `, skipped ${task.skippedTargets.length}` : "";
+        return `${task.field}${detail ? `: ${detail}` : ""}${scope}${skipped}`;
       }
       const parts = [task.field];
       ["value", "hot", "cold", "unit"].forEach(key => {
@@ -2989,6 +3014,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       for (const [index, item] of files.entries()) {
         out += `== ${item.name} ==\n`;
         const itemTasks = tasks.filter(task => task.targets && task.targets.includes(index));
+        const skippedTasks = tasks.filter(task => (task.skippedTargets || []).some(entry => entry.index === index));
+        skippedTasks.forEach(task => {
+          const skipped = (task.skippedTargets || []).find(entry => entry.index === index);
+          out += `  skipped: ${skipped.family} does not match ${skipped.expected} (${task.skippedReason || "model mismatch"})\n`;
+        });
         if (!itemTasks.length) {
           out += "  no assigned tasks\n\n";
           continue;
