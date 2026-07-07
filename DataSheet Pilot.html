@@ -1422,15 +1422,12 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       Object.entries(groups).forEach(([group, names]) => {
         const visible = names.filter(name => fieldAllowedForKinds(name, kinds, availability));
         if (!visible.length) return;
-        const optgroup = document.createElement("optgroup");
-        optgroup.label = group;
         visible.forEach(name => {
           const option = document.createElement("option");
           option.value = name;
           option.textContent = name;
-          optgroup.appendChild(option);
+          select.appendChild(option);
         });
-        select.appendChild(optgroup);
       });
       if (previousValue && [...select.options].some(option => option.value === previousValue)) {
         select.value = previousValue;
