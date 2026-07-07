@@ -2248,6 +2248,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
             this.bpheConnectionScopedValue(task, "coldOut")
           );
           if ((hotConnection || coldConnection) && this.setConnectionSummaryRow(doc, hotConnection, coldConnection)) changed = true;
+          const connectionValues = ["hotIn", "hotOut", "coldIn", "coldOut"].map(column => this.bpheConnectionScopedValue(task, column));
+          if (this.setConnectionRow(doc, "Connection", connectionValues)) changed = true;
           return changed;
         }
         if (this.setMaterialValue(doc, "Plate material", plateWithThickness)) changed = true;
