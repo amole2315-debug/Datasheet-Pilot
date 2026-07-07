@@ -1235,6 +1235,16 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return match ? match.rule : "";
     }
 
+    function conversionRuleForCurrentUnit(field, fromUnit, toUnit, fallbackRule) {
+      const directRule = findConversionRule(field, fromUnit, toUnit);
+      if (directRule) return directRule;
+      if (!fallbackRule) return "";
+      const fallbackSource = sourceUnit(fallbackRule);
+      const fallbackTarget = targetUnit(fallbackRule);
+      if (canonicalUnit(fallbackTarget) !== canonicalUnit(toUnit)) return "";
+      return canonicalUnit(fallbackSource) === canonicalUnit(fromUnit) ? fallbackRule : "";
+    }
+
     function normalizeRequestedUnit(field, unit) {
       if (field !== "Heat capacity") return unit;
       const value = canonicalUnit(unit);
@@ -2753,7 +2763,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         for (const cells of this.findRows(doc, label)) {
           const unitCell = cells[cells.length - 1];
           const oldUnit = unitCell ? this.cellText(unitCell) : "";
-          const rule = findConversionRule(field, oldUnit, requestedUnit) || task.unitRule || "";
+          const rule = conversionRuleForCurrentUnit(field, oldUnit, requestedUnit, task.unitRule);
           if (!requestedUnit || canonicalUnit(oldUnit) === canonicalUnit(requestedUnit)) continue;
           if (unitsAreEquivalent(field, oldUnit, requestedUnit)) {
             if (unitCell) {
