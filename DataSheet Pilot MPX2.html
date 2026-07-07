@@ -2227,9 +2227,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
             this.bpheConnectionScopedValue(task, "coldIn"),
             this.bpheConnectionScopedValue(task, "coldOut")
           );
-          if ((hotConnection || coldConnection) && this.setConnectionSummaryRow(doc, hotConnection, coldConnection)) changed = true;
-          const connectionValues = ["hotIn", "hotOut", "coldIn", "coldOut"].map(column => this.bpheConnectionScopedValue(task, column));
-          if (this.setConnectionRow(doc, "Connection", connectionValues)) changed = true;
+          if ((hotConnection || coldConnection) && this.setBpheConnectionValues(doc, hotConnection, coldConnection)) changed = true;
           return changed;
         }
         if (this.setMaterialValue(doc, "Plate material", plateWithThickness)) changed = true;
@@ -2485,17 +2483,19 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
       setConnectionRow(doc, label, values) {
         let changed = false;
+        const labels = Array.isArray(label) ? label : [label];
+        const targets = labels.map(item => cleanLabel(item));
         for (const row of this.rows(doc)) {
           const cells = this.cells(row);
           for (let i = 0; i < cells.length; i += 1) {
-            if (cleanLabel(this.cellText(cells[i])) !== cleanLabel(label)) continue;
+            if (!targets.includes(cleanLabel(this.cellText(cells[i])))) continue;
             values.forEach((value, offset) => {
               const cell = cells[i + 1 + offset];
               if (!cell || value === undefined || value === null || value === "") return;
               const old = this.cellText(cell);
               if (old !== value) {
                 this.setCellText(cell, value);
-                this.changes.push([`Connection ${label}`, old, value]);
+                this.changes.push([`Connection ${labels[0]}`, old, value]);
                 changed = true;
               }
             });
@@ -2504,12 +2504,14 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         return changed;
       }
 
-      setConnectionSummaryRow(doc, hot, cold) {
+      setConnectionSummaryRow(doc, hot, cold, label = "Connection Type") {
         let changed = false;
+        const labels = Array.isArray(label) ? label : [label];
+        const targets = labels.map(item => cleanLabel(item));
         for (const row of this.rows(doc)) {
           const cells = this.cells(row);
           for (let i = 0; i < cells.length; i += 1) {
-            if (cleanLabel(this.cellText(cells[i])) !== cleanLabel("Connection Type")) continue;
+            if (!targets.includes(cleanLabel(this.cellText(cells[i])))) continue;
             const pairs = [
               [cells[i + 1], hot, "Connection Type Hot"],
               [cells[i + 2], cold, "Connection Type Cold"]
@@ -2524,6 +2526,46 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
               }
             }
           }
+        }
+        return changed;
+      }
+
+      setBpheConnectionValues(doc, hot, cold) {
+        let changed = false;
+        const labels = ["Connection Type", "Connection", "Connection Size", "Connection Spec"];
+        if (this.setConnectionSummaryRow(doc, hot, cold, labels)) changed = true;
+        if (!changed && this.setConnectionRow(doc, labels, [hot, cold])) changed = true;
+        if (!changed && this.setBpheConnectionByExistingValue(doc, hot, cold)) changed = true;
+        return changed;
+      }
+
+      isBpheConnectionText(text) {
+        return /\b(?:PT|NPT|SD|WD|G)\s*(?:\d|[0-9/"])/i.test(text || "");
+      }
+
+      setBpheConnectionByExistingValue(doc, hot, cold) {
+        let changed = false;
+        for (const row of this.rows(doc)) {
+          const cells = this.cells(row);
+          const hits = [];
+          cells.forEach((cell, index) => {
+            if (this.isBpheConnectionText(this.cellText(cell))) hits.push(index);
+          });
+          if (hits.length < 1) continue;
+          const pairs = [
+            [cells[hits[0]], hot, "BPHE Connection Hot"],
+            [cells[hits[1] || hits[0] + 1], cold, "BPHE Connection Cold"]
+          ];
+          for (const [cell, value, label] of pairs) {
+            if (!cell || !value) continue;
+            const old = this.cellText(cell);
+            if (old !== value) {
+              this.setCellText(cell, value);
+              this.changes.push([label, old, value]);
+              changed = true;
+            }
+          }
+          if (changed) return true;
         }
         return changed;
       }
