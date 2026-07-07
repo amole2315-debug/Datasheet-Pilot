@@ -2443,7 +2443,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         for (const row of this.rows(doc)) {
           const cells = this.cells(row);
           for (let i = 0; i < cells.length - 1; i += 1) {
-            if (rowLabelMatches(this.cellText(cells[i]), field)) {
+            if (rowLabelEquals(this.cellText(cells[i]), field)) {
               const old = this.cellText(cells[i + 1]);
               if (old !== value) {
                 this.setCellText(cells[i + 1], value);
