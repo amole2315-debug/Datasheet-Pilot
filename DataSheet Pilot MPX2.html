@@ -2334,14 +2334,14 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         const targets = [
           { labels: ["Heat capacity"], field: "Heat capacity", unit: wantsCal ? "kcal/hr" : "kW", twoSided: true },
           { labels: ["O.H.T.C", "OHTC"], field: "O.H.T.C", unit: wantsCal ? "kcal/(m2*h*K)" : "W/(m2*K)", twoSided: false },
-          { labels: ["Specific heat capacity (Liquid)", "Specific heat capacity (Liquid/Vapor)"], field: "Specific heat capacity (Liquid)", unit: wantsCal ? "kcal/(kg*K)" : "kJ/(kg*K)", twoSided: false },
-          { labels: ["Thermal conductivity (Liquid)", "Thermal conductivity (Liquid/Vapor)"], field: "Thermal conductivity (Liquid)", unit: wantsCal ? "kcal/(m*h*K)" : "W/(m*K)", twoSided: false },
+          { labels: ["Specific heat capacity (Liquid)", "Specific heat capacity (Liquid/Vapor)"], field: "Specific heat capacity (Liquid)", unit: wantsCal ? "kcal/(kg*K)" : "kJ/(kg*K)", allValues: true },
+          { labels: ["Thermal conductivity (Liquid)", "Thermal conductivity (Liquid/Vapor)"], field: "Thermal conductivity (Liquid)", unit: wantsCal ? "kcal/(m*h*K)" : "W/(m*K)", allValues: true },
           { labels: ["Latent heat"], field: "Latent heat", unit: wantsCal ? "kcal/kg" : "kJ/kg", twoSided: false }
         ];
         let changed = false;
         for (const target of targets) {
           for (const label of target.labels) {
-            if (this.convertRow(doc, label, { field: target.field, unitTarget: target.unit }, target.twoSided)) {
+            if (this.convertRow(doc, label, { field: target.field, unitTarget: target.unit, allValues: target.allValues }, target.twoSided)) {
               changed = true;
               break;
             }
@@ -2741,7 +2741,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
             this.changes.push([`${label} Unit`, oldUnit || "(blank)", `SKIP: no conversion to ${requestedUnit}`]);
             continue;
           }
-          const indexes = twoSided && cells.length > 3 ? [1, 2] : [1];
+          const indexes = task.allValues
+            ? cells.map((_, index) => index).slice(1, -1)
+            : (twoSided && cells.length > 3 ? [1, 2] : [1]);
           for (const index of indexes) {
             if (!cells[index]) continue;
             const old = this.cellText(cells[index]);
