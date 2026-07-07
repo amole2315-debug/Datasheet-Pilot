@@ -790,11 +790,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     };
     const HEAT_CAPACITY_UNITS = [
       { unit: "kcal/hr", from: ["kcal/h", "kcal/hr"] },
-      { unit: "kW", from: ["kW"] },
-      { unit: "W", from: ["W"] },
-      { unit: "J/s", from: ["J/s", "J"] },
-      { unit: "Btu/h", from: ["Btu/h", "Btu/hr", "BTU/h", "BTU/hr", "Btu"] },
-      { unit: "kJ/s", from: ["kJ/s", "kJ"] }
+      { unit: "kW", from: ["kW", "kJ/s", "kJ"] },
+      { unit: "W", from: ["W", "J/s", "J"] },
+      { unit: "Btu/h", from: ["Btu/h", "Btu/hr", "BTU/h", "BTU/hr", "Btu"] }
     ];
     const PRESSURE_UNITS = [
       { unit: "Pa_G", from: ["Pa_G", "PaG", "Pa G"] },
@@ -1235,6 +1233,14 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         return unitMatches(fromUnit, candidate.from) && canonicalUnit(targetUnit(candidate.rule)) === canonicalUnit(toUnit);
       });
       return match ? match.rule : "";
+    }
+
+    function normalizeRequestedUnit(field, unit) {
+      if (field !== "Heat capacity") return unit;
+      const value = canonicalUnit(unit);
+      if (value === "kj/s" || value === "kj") return "kW";
+      if (value === "j/s" || value === "j") return "W";
+      return unit;
     }
 
     function fileDisplayName(file) {
@@ -2717,12 +2723,20 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       convertRow(doc, label, task, twoSided) {
         let changed = false;
         const field = task.field || label;
-        const requestedUnit = task.unitTarget || targetUnit(task.unitRule || "");
+        const requestedUnit = normalizeRequestedUnit(field, task.unitTarget || targetUnit(task.unitRule || ""));
         for (const cells of this.findRows(doc, label)) {
           const unitCell = cells[cells.length - 1];
           const oldUnit = unitCell ? this.cellText(unitCell) : "";
           const rule = findConversionRule(field, oldUnit, requestedUnit) || task.unitRule || "";
           if (!requestedUnit || canonicalUnit(oldUnit) === canonicalUnit(requestedUnit)) continue;
+          if (unitsAreEquivalent(field, oldUnit, requestedUnit)) {
+            if (unitCell) {
+              this.setCellText(unitCell, requestedUnit);
+              this.changes.push([`${label} Unit`, oldUnit, requestedUnit]);
+              changed = true;
+            }
+            continue;
+          }
           if (!rule) {
             this.changes.push([`${label} Unit`, oldUnit || "(blank)", `SKIP: no conversion to ${requestedUnit}`]);
             continue;
@@ -2789,6 +2803,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         const decimals = Math.abs(converted) >= 100 ? 1 : 2;
         return converted.toFixed(decimals);
       });
+    }
+
+    function unitsAreEquivalent(field, fromUnit, toUnit) {
+      if (field !== "Heat capacity") return false;
+      const from = heatCapacityFactorToW(fromUnit);
+      const to = heatCapacityFactorToW(toUnit);
+      return Boolean(from && to && Math.abs(from - to) < 1e-9);
     }
 
     function convertHeatCapacityValue(number, rule) {
