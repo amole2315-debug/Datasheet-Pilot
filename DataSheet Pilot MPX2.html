@@ -1950,6 +1950,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       editingTaskIndex = -1;
       renderTasks();
       updateApplyButton();
+      preview();
     }
 
     function editTask() {
@@ -2827,9 +2828,22 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         else if (rule === "kPaA -> bar_A") converted = number / 100;
         else if (rule === "kPa -> bar") converted = number / 100;
         else if (rule === "bar -> kPa") converted = number * 100;
-        const decimals = Math.abs(converted) >= 100 ? 1 : 2;
-        return converted.toFixed(decimals);
+        return formatConvertedNumber(converted, rule);
       });
+    }
+
+    function formatConvertedNumber(number, rule) {
+      const target = targetUnit(rule);
+      if (convertHeatCapacityValue(1, rule) !== null) {
+        if (canonicalUnit(target) === "kw") return trimFixed(number, 4);
+        if (canonicalUnit(target) === "w") return trimFixed(number, 2);
+      }
+      const decimals = Math.abs(number) >= 100 ? 1 : 2;
+      return number.toFixed(decimals);
+    }
+
+    function trimFixed(number, digits) {
+      return Number(number.toFixed(digits)).toString();
     }
 
     function unitsAreEquivalent(field, fromUnit, toUnit) {
