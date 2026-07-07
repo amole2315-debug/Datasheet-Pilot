@@ -2952,11 +2952,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       const base = item.name.replace(/\\/g, "/").split("/").pop().replace(/\.docx$/i, "");
       if (!renameOutput.checked) return `${base}_corrected.docx`;
       const info = await editor.filenameInfo();
-      const itemNo = safeFilenamePart(info.itemNo, safeFilenamePart(base, "datasheet"));
+      const itemNo = safeFilenamePart(info.itemNo, "");
       const model = safeFilenamePart(info.result || modelFromText(item.result), "result");
       const plates = safeFilenamePart(plateText(info.plates), "");
-      const form = safeFilenamePart(item.form, "form");
-      return [itemNo, model, plates, form].filter(Boolean).join("_") + ".docx";
+      return [itemNo, model, plates, "Datasheet"].filter(Boolean).join("_") + ".docx";
     }
 
     async function preview() {
