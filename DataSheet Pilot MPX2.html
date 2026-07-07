@@ -1485,8 +1485,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
     function refreshFieldSelect() {
       const previous = fieldSelect.value;
+      const formState = dynamicForm.querySelector("[data-key]") ? collectFormValues() : null;
       renderGroupedFieldSelect(fieldSelect, FIELD_GROUPS, selectedKinds(files), FIELD_AVAILABILITY, previous);
-      renderDynamicForm();
+      const canRestore = formState && formState.field === fieldSelect.value;
+      renderDynamicForm(canRestore && formState.mode === "convert" ? "Convert unit" : undefined);
+      if (canRestore) setFormValues(formState);
     }
 
     function initFieldSelect() {
@@ -3536,8 +3539,17 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
     function refreshHtriFieldSelect() {
       const previous = htriFieldSelect.value;
+      const formState = htriDynamicForm.querySelector("[data-key]") ? collectHtriFormValues() : null;
       renderGroupedFieldSelect(htriFieldSelect, HTRI_FIELD_GROUPS, selectedKinds(htriFiles), HTRI_FIELD_AVAILABILITY, previous);
-      renderHtriDynamicForm();
+      const canRestore = formState && formState.field === htriFieldSelect.value;
+      renderHtriDynamicForm(canRestore && formState.mode === "convert" ? "Convert unit" : undefined);
+      if (canRestore) {
+        htriDynamicForm.querySelectorAll("[data-key]").forEach(input => {
+          const key = input.dataset.key;
+          if (key === "mode") input.value = formState.mode === "convert" ? "Convert unit" : "Set value";
+          if (Object.prototype.hasOwnProperty.call(formState, key)) input.value = formState[key] || "";
+        });
+      }
     }
 
     function initHtriFieldSelect() {
