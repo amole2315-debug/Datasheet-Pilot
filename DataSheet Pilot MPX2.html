@@ -935,6 +935,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
     const files = [];
     const tasks = [];
+    const removedTaskHistory = [];
     let selectedTaskIndex = -1;
     let editingTaskIndex = -1;
     let editSelectionSnapshot = null;
@@ -1390,8 +1391,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           <td class="${item.result.startsWith("read error") || item.result.includes("denied") ? "error" : ""}" title="${escapeHtml(item.result)}">${escapeHtml(item.result)}</td>
         `;
         tr.querySelector("input").addEventListener("change", event => {
+          const formState = snapshotFormState();
           item.selected = event.target.checked;
-          refreshFieldSelect();
+          refreshFieldSelect(formState);
         });
         tr.addEventListener("dragstart", event => {
           isReorderingFiles = true;
@@ -1538,9 +1540,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       }
     }
 
-    function refreshFieldSelect() {
+    function snapshotFormState() {
+      return dynamicForm.querySelector("[data-key]") ? collectFormValues() : null;
+    }
+
+    function refreshFieldSelect(formStateOverride) {
       const previous = fieldSelect.value;
-      const formState = dynamicForm.querySelector("[data-key]") ? collectFormValues() : null;
+      const formState = formStateOverride || snapshotFormState();
       renderGroupedFieldSelect(fieldSelect, FIELD_GROUPS, selectedKinds(files), FIELD_AVAILABILITY, previous);
       const canRestore = formState && formState.field === fieldSelect.value;
       renderDynamicForm(canRestore && formState.mode === "convert" ? "Convert unit" : undefined);
@@ -2001,7 +2007,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
     function removeTask() {
       if (selectedTaskIndex < 0) return;
-      tasks.splice(selectedTaskIndex, 1);
+      const removed = tasks.splice(selectedTaskIndex, 1)[0];
+      if (removed) removedTaskHistory.unshift(taskLabel(removed));
       selectedTaskIndex = -1;
       editingTaskIndex = -1;
       editSelectionSnapshot = null;
@@ -3192,11 +3199,18 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }
 
     async function preview() {
-      if (!tasks.length) {
+      if (!tasks.length && !removedTaskHistory.length) {
         previewText.textContent = "No tasks.";
         return;
       }
       let out = "";
+      if (removedTaskHistory.length) {
+        out += "== Removed tasks ==\n";
+        removedTaskHistory.slice(0, 8).forEach(label => {
+          out += `  removed: ${label}\n`;
+        });
+        out += "\n";
+      }
       for (const [index, item] of files.entries()) {
         out += `== ${item.name} ==\n`;
         const itemTasks = tasks.filter(task => task.targets && task.targets.includes(index));
@@ -3211,10 +3225,14 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         }
         try {
           const editor = await DocxEditor.fromFile(item);
+          const previewLines = new Set();
           for (const task of itemTasks) {
             const changes = await editor.applyTask({ ...task });
             for (const [field, oldValue, newValue] of changes) {
-              out += `  ${field}: ${oldValue} -> ${newValue}\n`;
+              const line = `  ${field}: ${oldValue} -> ${newValue}`;
+              if (previewLines.has(line)) continue;
+              previewLines.add(line);
+              out += `${line}\n`;
             }
           }
           if (!editor.changes.length) out += "  no matched fields\n";
