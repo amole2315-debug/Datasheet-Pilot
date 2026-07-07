@@ -1092,14 +1092,18 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }
 
     function frameMaterialForStandard(frame, standard) {
-      const value = String(frame || "C.S").trim();
-      if (value.toUpperCase().replace(/\./g, "") === "CS" && connectionFamily(standard) === "ASME") return "SA-516 Gr.70";
-      if (value.toUpperCase().replace(/\./g, "") === "CS") return "C.S";
-      return value;
+      const family = connectionFamily(standard);
+      if (family === "ASME") return "A516 Gr.70";
+      if (family === "KSJIS") return "SS275";
+      return String(frame || "C.S").trim() || "C.S";
     }
 
     function defaultFrameMaterialForStandard(standard) {
-      return connectionFamily(standard) === "ASME" ? "SA-516 Gr.70" : "SS275";
+      return connectionFamily(standard) === "ASME" ? "A516 Gr.70" : "SS275";
+    }
+
+    function designCodeForStandard(standard) {
+      return connectionFamily(standard) === "ASME" ? "ASME" : "AD-2000";
     }
 
     function autoConnectionMaterial(type, standard, baseMaterial, component, explicitValue) {
@@ -1625,9 +1629,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           </div>
         </div>
         <div data-product-section="GPHE">
+        ${selectRow("Gasket Material", "gasketMaterial", ["NBR", "EPDM", "Viton", "Viton-G"])}
         ${selectRow("Standard", "standard", CONNECTION_STANDARDS, standard)}
         ${selectRow("Apply range", "connectionScope", ["All same", "Hot / Cold", "Individual"])}
-        ${selectRow("Gasket Material", "gasketMaterial", ["NBR", "EPDM", "Viton", "Viton-G"])}
         <div data-connection-scope="All same">
           ${scopedConnectionRows("all", "", standard)}
         </div>
@@ -2235,6 +2239,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         if (task.gasketMaterial && this.setMaterialValue(doc, "Gasket Material", task.gasketMaterial)) changed = true;
         if (this.setMaterialValue(doc, "Frame material", frameMaterial)) changed = true;
         if (this.updateFrameTypeMaterial(doc, frameMaterial)) changed = true;
+        if (this.setMaterialValue(doc, "Design code", designCodeForStandard(standard))) changed = true;
         return changed;
       }
 
@@ -2549,9 +2554,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
             if (!rowLabelEquals(this.cellText(cells[i]), "Frame type / material")) continue;
             const cell = cells[i + 1];
             const old = this.cellText(cell);
-            const next = frameMaterial === "SA-516 Gr.70"
-              ? old.replace(/C\.?S\.?/gi, "SA-516 Gr.70")
-              : old.replace(/SA-516\s+Gr\.70/gi, "C.S.");
+            const next = old.includes("/")
+              ? old.replace(/\/\s*[^/]*$/, `/ ${frameMaterial}`)
+              : frameMaterial;
             if (old !== next) {
               this.setCellText(cell, next);
               this.changes.push(["Frame type / material", old, next]);
