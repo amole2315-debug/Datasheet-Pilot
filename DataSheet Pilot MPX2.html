@@ -1979,7 +1979,18 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       const values = selected.map(({ item, index }) => ({ index, unit: unitValuesForItem(item, field) }));
       const unique = [...new Set(values.map(value => value.unit))];
       if (unique.length === 1) return `${escapeHtml(field)}: ${escapeHtml(unique[0])} -> ${escapeHtml(target || "-")}`;
-      return `${escapeHtml(field)}: ${values.map(value => `#${value.index + 1} ${escapeHtml(value.unit)}`).join(", ")} -> ${escapeHtml(target || "-")}`;
+      return `${escapeHtml(field)}: ${groupUnitsByFileNo(values)} -> ${escapeHtml(target || "-")}`;
+    }
+
+    function groupUnitsByFileNo(values) {
+      const groups = new Map();
+      values.forEach(value => {
+        if (!groups.has(value.unit)) groups.set(value.unit, []);
+        groups.get(value.unit).push(`#${value.index + 1}`);
+      });
+      return [...groups.entries()]
+        .map(([unit, numbers]) => `${escapeHtml(unit)} (${numbers.join(", ")})`)
+        .join(", ");
     }
 
     function unitConversionInfoHtml(field, target) {
