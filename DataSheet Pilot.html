@@ -1274,7 +1274,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       const name = error && error.name ? error.name : "Error";
       if (name === "SecurityError" || name === "NotAllowedError") return "permission denied";
       if (name === "InvalidStateError") return "file unavailable";
-      return `read error: ${name}`;
+      return `read error: ${name}${error && error.message ? `: ${error.message}` : ""}`;
     }
 
     function inferFromName(item) {
@@ -2294,7 +2294,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           if (data.connection.product === "BPHE") {
             const targetFamily = bpheConnectionFamily(`${this.item.result || ""} ${this.item.name || ""}`);
             const sourceFamily = bpheConnectionFamily(data.connection.model || "");
-            const fallback = bpheConnectionOptions(targetFamily || sourceFamily || "MC20")[0] || "";
+            const options = bpheConnectionOptions(targetFamily || sourceFamily || "MC20");
+            const fallback = Array.isArray(options) ? options[0] || "" : "";
             const hot = sourceFamily && targetFamily && sourceFamily !== targetFamily ? fallback : data.connection.hot || fallback;
             const cold = sourceFamily && targetFamily && sourceFamily !== targetFamily ? fallback : data.connection.cold || fallback;
             if ((hot || cold) && this.setBpheConnectionValues(doc, hot, cold)) changed = true;
@@ -3107,7 +3108,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }
 
     function bpheConnectionFamily(model) {
-      const value = normalizeModelSpacing(model).toUpperCase();
+      const value = normalizeModelSpacing(model).toUpperCase().replace(/\bM\s+([CS])\s*(\d+)/g, "M$1$2");
       const match = value.match(/\bM[CS](10|20|30|60)\b/);
       return match ? `MC${match[1]}` : "";
     }
