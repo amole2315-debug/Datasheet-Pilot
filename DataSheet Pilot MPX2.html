@@ -771,6 +771,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
     const FIELD_GROUPS = {
       "Basic": ["Basic Info"],
+      "Clone": ["Clone Datasheet"],
       "Connection": ["Connection / Material"],
       "Duty": ["Duty Values"],
       "Design": ["Design Values"],
@@ -1897,6 +1898,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         return selectRow("Target unit", "unitTarget", unitTargets.length ? unitTargets : [NO_UNIT_TARGET]);
       }
       if (field === "Basic Info") return basicInfoFormHtml();
+      if (field === "Clone Datasheet") return cloneDatasheetFormHtml();
       if (field === "Duty Values") return dutyValuesFormHtml();
       if (field === "Design Values") return designValuesFormHtml();
       if (field === "Unit Conversion") return unitConversionFormHtml();
@@ -1933,6 +1935,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return inputRow("Value", "value") + inputRow("Unit", "unit");
     }
 
+    function cloneDatasheetFormHtml() {
+      const options = files.length
+        ? files.map((item, index) => `${index + 1} - ${item.name}`)
+        : ["No files loaded"];
+      return selectRow("Source no", "cloneSourceNo", options, options[0]);
+    }
+
     function collectFormValues() {
       const task = { field: fieldSelect.value, mode: "set" };
       dynamicForm.querySelectorAll("[data-key]").forEach(input => {
@@ -1950,7 +1959,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return task;
     }
 
-    function applyTaskFromForm() {
+    async function applyTaskFromForm() {
       const targets = files
         .map((file, index) => file.selected ? index : -1)
         .filter(index => index >= 0);
@@ -1959,6 +1968,21 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         return;
       }
       const task = collectFormValues();
+      if (task.field === "Clone Datasheet") {
+        const sourceIndex = cloneSourceIndex(task.cloneSourceNo);
+        if (sourceIndex < 0 || !files[sourceIndex]) {
+          alert("Select a source datasheet to clone.");
+          return;
+        }
+        try {
+          task.cloneSourceIndex = sourceIndex;
+          task.cloneSourceName = files[sourceIndex].name;
+          task.cloneData = await cloneDataFromSource(sourceIndex);
+        } catch (error) {
+          alert("Clone source read failed:\n" + readableError(error));
+          return;
+        }
+      }
       if (isConnectionField(task.field) && task.productScope) {
         const scopedTargets = targets.filter(index => files[index] && files[index].kind === task.productScope);
         if (!scopedTargets.length) {
@@ -1996,6 +2020,16 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       renderTasks();
       updateApplyButton();
       preview();
+    }
+
+    function cloneSourceIndex(value) {
+      const match = String(value || "").match(/^\s*(\d+)/);
+      return match ? Number(match[1]) - 1 : -1;
+    }
+
+    async function cloneDataFromSource(sourceIndex) {
+      const sourceEditor = await DocxEditor.fromFile(files[sourceIndex]);
+      return await sourceEditor.extractCloneData();
     }
 
     function filterBpheTargetsByConnectionModel(targets, connectionModel) {
@@ -2122,6 +2156,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if (task.field === "Basic Info") return `${task.field}${scope}`;
       if (task.field === "Duty Values") return `${task.field}${scope}`;
       if (task.field === "Design Values") return `${task.field}${scope}`;
+      if (task.field === "Clone Datasheet") return `${task.field}: source #${(task.cloneSourceIndex ?? -1) + 1}${scope}`;
       if (task.field === "Material") return `${task.field}${scope}`;
       if (task.field === "Unit Conversion") return `${task.unitField || "Unit"} -> ${task.unitTarget || ""}${scope}`;
       if (task.field === "J/cal Target Conversion") return `${task.field}: ${task.value || "cal target"}${scope}`;
@@ -2305,6 +2340,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         if (field === "Basic Info") {
           return this.applyBasicInfoTask(doc, task);
         }
+        if (field === "Clone Datasheet") {
+          return this.applyCloneDatasheetTask(doc, task);
+        }
         if (field === "Duty Values") {
           return this.applyDutyValuesTask(doc, task);
         }
@@ -2367,6 +2405,49 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         for (const field of BASIC_INFO_FIELDS) {
           const value = task[`basic_${fieldKey(field)}`];
           if (value && this.setHeaderPair(doc, field, value)) changed = true;
+        }
+        return changed;
+      }
+
+      applyCloneDatasheetTask(doc, task) {
+        const data = task.cloneData || {};
+        let changed = false;
+        for (const [field, value] of Object.entries(data.basic || {})) {
+          if (value && this.setHeaderPair(doc, field, value)) changed = true;
+        }
+        for (const [label, value] of Object.entries(data.materials || {})) {
+          if (value && this.setMaterialValue(doc, label, value)) changed = true;
+        }
+        if (data.designTemperature && this.setSingleRow(doc, "Design temperature", data.designTemperature.value || "", data.designTemperature.unit || "")) changed = true;
+        if (data.designPressure && this.setSingleRow(doc, "Design / Test Pressure", data.designPressure.value || "", data.designPressure.unit || "")) changed = true;
+        if (data.connection) {
+          if (data.connection.product === "BPHE") {
+            const targetFamily = bpheConnectionFamily(`${this.item.result || ""} ${this.item.name || ""}`);
+            const sourceFamily = bpheConnectionFamily(data.connection.model || "");
+            const fallback = bpheConnectionOptions(targetFamily || sourceFamily || "MC20")[0] || "";
+            const hot = sourceFamily && targetFamily && sourceFamily !== targetFamily ? fallback : data.connection.hot || fallback;
+            const cold = sourceFamily && targetFamily && sourceFamily !== targetFamily ? fallback : data.connection.cold || fallback;
+            if ((hot || cold) && this.setBpheConnectionValues(doc, hot, cold)) changed = true;
+          } else {
+            const model = modelFromText(`${this.item.result || ""} ${this.item.name || ""}`);
+            const sameModel = model && data.connection.model && model === data.connection.model;
+            const sizes = (data.connection.sizes || []).map(size => sameModel && size ? size : connectionSizeForStandard("Auto", data.connection.standard || "KS", model));
+            const ratings = data.connection.ratings || [];
+            const types = data.connection.types || [];
+            const texts = [0, 1, 2, 3].map(index => [ratings[index] || ratings[0] || "", sizes[index] || sizes[0] || "", types[index] || types[0] || ""].filter(Boolean).join(" ").replace(/\s+/g, " ").trim());
+            const hot = this.connectionSideSummary(texts[0] || data.connection.hotIn || data.connection.hot || "", texts[1] || data.connection.hotOut || data.connection.hot || "");
+            const cold = this.connectionSideSummary(texts[2] || data.connection.coldIn || data.connection.cold || "", texts[3] || data.connection.coldOut || data.connection.cold || "");
+            if (hot || cold) {
+              if (this.setConnectionSummaryRow(doc, hot, cold)) changed = true;
+            }
+            if (data.connection.positions && this.setConnectionRow(doc, "Position", data.connection.positions)) changed = true;
+            if (ratings.length && this.setConnectionRow(doc, "Rating", ratings)) changed = true;
+            if (sizes.length && this.setConnectionRow(doc, "Size", sizes)) changed = true;
+            if (types.length && this.setConnectionRow(doc, "Type", types)) changed = true;
+            if (data.connection.flange && this.setConnectionRow(doc, "Flange Material", data.connection.flange)) changed = true;
+            if (data.connection.nozzle && this.setConnectionRow(doc, "Nozzle Material", data.connection.nozzle)) changed = true;
+            if (data.connection.lining && this.setConnectionRow(doc, "Lining Material", data.connection.lining)) changed = true;
+          }
         }
         return changed;
       }
@@ -2512,6 +2593,106 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           }
         }
         return changed;
+      }
+
+      async extractCloneData() {
+        const data = {
+          basic: {},
+          materials: {},
+          designTemperature: null,
+          designPressure: null,
+          connection: null
+        };
+        const text = await this.allText();
+        const model = modelFromText(`${this.item.result || ""} ${this.item.name || ""} ${text}`);
+        const product = this.isBpheItem() ? "BPHE" : "GPHE";
+        for (const name of this.xmlPartNames()) {
+          const doc = await this.readXml(name);
+          for (const field of BASIC_INFO_FIELDS) {
+            if (!data.basic[field]) data.basic[field] = this.nextCellValue(doc, field);
+          }
+          for (const label of ["Plate material", "Gasket Material", "Frame material"]) {
+            if (!data.materials[label]) data.materials[label] = this.nextCellValue(doc, label) || this.rowValue(doc, label);
+          }
+          if (!data.designTemperature) data.designTemperature = this.singleRowValueUnit(doc, "Design temperature");
+          if (!data.designPressure) data.designPressure = this.singleRowValueUnit(doc, "Design / Test Pressure");
+          if (!data.connection) data.connection = product === "BPHE" ? this.extractBpheConnection(doc, model) : this.extractGpheConnection(doc);
+        }
+        data.connection = data.connection || { product, model };
+        data.connection.product = data.connection.product || product;
+        data.connection.model = data.connection.model || model;
+        return data;
+      }
+
+      singleRowValueUnit(doc, label) {
+        const row = this.findRows(doc, label)[0];
+        if (!row || row.length < 2) return null;
+        return {
+          value: normalize(this.cellText(row[1])),
+          unit: row.length > 2 ? normalize(this.cellText(row[row.length - 1])) : ""
+        };
+      }
+
+      extractGpheConnection(doc) {
+        const rowValues = label => this.connectionRowValues(doc, label);
+        const ratings = rowValues("Rating");
+        const standard = connectionStandardPart((ratings[0] || "").split(/\s+/)[0] || ratings[0] || "KS");
+        const connection = {
+          product: "GPHE",
+          standard,
+          positions: rowValues("Position"),
+          ratings,
+          sizes: rowValues("Size"),
+          types: rowValues("Type"),
+          flange: rowValues("Flange Material"),
+          nozzle: rowValues("Nozzle Material"),
+          lining: rowValues("Lining Material")
+        };
+        const summary = this.connectionSummaryValues(doc);
+        Object.assign(connection, summary);
+        return ratings.length || connection.hot || connection.cold ? connection : null;
+      }
+
+      extractBpheConnection(doc, model) {
+        const summary = this.connectionSummaryValues(doc);
+        const row = this.connectionRowValues(doc, "Connection");
+        return {
+          product: "BPHE",
+          model,
+          hot: summary.hot || row[0] || "",
+          cold: summary.cold || row[1] || row[0] || ""
+        };
+      }
+
+      connectionRowValues(doc, label) {
+        const targets = [cleanLabel(label)];
+        for (const row of this.rows(doc)) {
+          const cells = this.cells(row);
+          for (let i = 0; i < cells.length; i += 1) {
+            if (!targets.includes(cleanLabel(this.cellText(cells[i])))) continue;
+            return cells.slice(i + 1, i + 5).map(cell => normalize(this.cellText(cell))).filter(Boolean);
+          }
+        }
+        return [];
+      }
+
+      connectionSummaryValues(doc) {
+        const values = this.connectionRowValues(doc, "Connection Type");
+        return {
+          hot: values[0] || "",
+          cold: values[1] || "",
+          hotIn: this.splitConnectionSide(values[0]).inlet,
+          hotOut: this.splitConnectionSide(values[0]).outlet,
+          coldIn: this.splitConnectionSide(values[1]).inlet,
+          coldOut: this.splitConnectionSide(values[1]).outlet
+        };
+      }
+
+      splitConnectionSide(value) {
+        const text = normalize(value);
+        const match = text.match(/In:\s*(.*?)\s*\/\s*Out:\s*(.*)/i);
+        if (match) return { inlet: normalize(match[1]), outlet: normalize(match[2]) };
+        return { inlet: text, outlet: text };
       }
 
       rows(doc) {
