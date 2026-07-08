@@ -1551,7 +1551,16 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }
 
     function basicInfoFormHtml() {
-      return BASIC_INFO_FIELDS.map(field => inputRow(field, `basic_${fieldKey(field)}`)).join("");
+      return `
+        <div class="field-row">
+          <label>Item No.</label>
+          <label class="check-row">
+            <input type="checkbox" data-key="basicAutoItemNo">
+            Auto HEX-1 by list no
+          </label>
+        </div>
+        ${BASIC_INFO_FIELDS.map(field => inputRow(field, `basic_${fieldKey(field)}`)).join("")}
+      `;
     }
 
     function dutyValuesFormHtml() {
@@ -2930,6 +2939,14 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return [itemNo, model, plates, "Datasheet"].filter(Boolean).join("_") + ".docx";
     }
 
+    function taskForFile(task, index) {
+      const next = { ...task };
+      if (next.field === "Basic Info" && next.basicAutoItemNo) {
+        next.basic_Item_No = `HEX-${index + 1}`;
+      }
+      return next;
+    }
+
     async function preview() {
       if (!tasks.length && !removedTaskHistory.length) {
         previewText.textContent = "No tasks.";
@@ -2954,7 +2971,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           const editor = await DocxEditor.fromFile(item);
           const previewLines = new Set();
           for (const task of itemTasks) {
-            const changes = await editor.applyTask({ ...task });
+            const changes = await editor.applyTask(taskForFile(task, index));
             for (const [field, oldValue, newValue] of changes) {
               const line = `  ${field}: ${oldValue} -> ${newValue}`;
               if (previewLines.has(line)) continue;
@@ -2987,7 +3004,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         try {
           const editor = await DocxEditor.fromFile(item);
           const itemTasks = tasks.filter(task => task.targets && task.targets.includes(index));
-          for (const task of itemTasks) await editor.applyTask({ ...task });
+          for (const task of itemTasks) await editor.applyTask(taskForFile(task, index));
           corrected.push({
             name: await outputNameFor(item, editor),
             blob: await editor.bytes()
@@ -3038,7 +3055,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         try {
           const editor = await DocxEditor.fromFile(item);
           const itemTasks = tasks.filter(task => task.targets && task.targets.includes(index));
-          for (const task of itemTasks) await editor.applyTask({ ...task });
+          for (const task of itemTasks) await editor.applyTask(taskForFile(task, index));
           outputs.push({
             name: await outputNameFor(item, editor),
             blob: await editor.bytes()
