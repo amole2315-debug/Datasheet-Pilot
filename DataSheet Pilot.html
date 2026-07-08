@@ -1588,7 +1588,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }
 
     function designValuesFormHtml() {
-      const pressureUnits = ["", ...unitTargetsForConversionField("Design / Test Pressure")];
+      const pressureUnits = ["", "barg", ...unitTargetsForConversionField("Design / Test Pressure").filter(unit => canonicalUnit(unit) !== canonicalUnit("barg"))];
       return `
         <div class="duty-grid design-grid">
           <div></div>
@@ -1599,7 +1599,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           <div class="duty-cell"><select data-key="designTemperatureUnit"><option value=""></option><option value="°C" selected>°C</option></select></div>
           <div class="duty-label">Design / Test Pressure</div>
           <div class="duty-cell">${defaultClearingTextarea("designPressureValue", "10 / 13")}</div>
-          <div class="duty-cell"><select data-key="designPressureUnit">${pressureUnits.map(value => `<option value="${escapeHtml(value)}"${value === "barG" ? " selected" : ""}>${escapeHtml(value)}</option>`).join("")}</select></div>
+          <div class="duty-cell"><select data-key="designPressureUnit">${pressureUnits.map(value => `<option value="${escapeHtml(value)}"${value === "barg" ? " selected" : ""}>${escapeHtml(value)}</option>`).join("")}</select></div>
         </div>
       `;
     }
@@ -1817,7 +1817,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         return html;
       }
       if (field === "Design / Test Pressure") {
-        return defaultClearInputRow("Design / Test", "value", "10 / 13") + inputRow("Unit", "unit", "barG");
+        return defaultClearInputRow("Design / Test", "value", "10 / 13") + inputRow("Unit", "unit", "barg");
       }
       if (field === "Design Temperature") {
         return defaultClearInputRow("Value", "value", "100") + inputRow("Unit", "unit", "°C");
