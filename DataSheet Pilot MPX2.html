@@ -1701,6 +1701,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return `
         ${selectRow("Target row", "unitField", UNIT_CONVERSION_FIELDS)}
         ${selectRow("Target unit", "unitTarget", unitTargetsForConversionField(UNIT_CONVERSION_FIELDS[0]))}
+        <div class="status" data-unit-info>${unitConversionInfoHtml(UNIT_CONVERSION_FIELDS[0], unitTargetsForConversionField(UNIT_CONVERSION_FIELDS[0])[0] || "")}</div>
       `;
     }
 
@@ -1789,7 +1790,25 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       }
       if (isConnectionField(field)) setupConnectionForm();
       if (field === "Unit Conversion") setupUnitConversionForm();
+      setupUnitInfoRefresh(field);
       setupClearDefaultInputs(dynamicForm);
+    }
+
+    function setupUnitInfoRefresh(field) {
+      const info = dynamicForm.querySelector("[data-unit-info]");
+      if (!info) return;
+      const unitTarget = dynamicForm.querySelector("[data-key='unitTarget']");
+      if (unitTarget) {
+        unitTarget.addEventListener("change", () => {
+          info.innerHTML = unitConversionInfoHtml(field, unitTarget.value);
+        });
+      }
+      const family = dynamicForm.querySelector("[data-key='value']");
+      if (field === "J/cal Target Conversion" && family) {
+        family.addEventListener("change", () => {
+          info.innerHTML = propertyGroupInfoHtml(family.value);
+        });
+      }
     }
 
     function updateSelectOptions(select, values, fallback) {
@@ -1882,9 +1901,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       const field = dynamicForm.querySelector("[data-key='unitField']");
       const target = dynamicForm.querySelector("[data-key='unitTarget']");
       const refresh = () => {
-        updateSelectOptions(target, unitTargetsForConversionField(field ? field.value : ""), "");
+        const unitField = field ? field.value : "";
+        updateSelectOptions(target, unitTargetsForConversionField(unitField), "");
+        const info = dynamicForm.querySelector("[data-unit-info]");
+        if (info) info.innerHTML = unitConversionInfoHtml(unitField, target ? target.value : "");
       };
       if (field) field.addEventListener("change", refresh);
+      if (target) target.addEventListener("change", refresh);
       refresh();
     }
 
@@ -1895,7 +1918,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
     function formHtmlForField(field, mode, unitTargets = []) {
       if (mode === "Convert unit") {
-        return selectRow("Target unit", "unitTarget", unitTargets.length ? unitTargets : [NO_UNIT_TARGET]);
+        const target = unitTargets[0] || NO_UNIT_TARGET;
+        return selectRow("Target unit", "unitTarget", unitTargets.length ? unitTargets : [NO_UNIT_TARGET])
+          + `<div class="status" data-unit-info>${unitConversionInfoHtml(field, target)}</div>`;
       }
       if (field === "Basic Info") return basicInfoFormHtml();
       if (field === "Clone Datasheet") return cloneDatasheetFormHtml();
@@ -1930,9 +1955,44 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         return selectRow("Material", "value", ["A240-304", "A240-316L", "Titanium", "C-276"]);
       }
       if (field === "J/cal Target Conversion") {
-        return selectRow("Target family", "value", ["cal target", "W/J target"]);
+        return selectRow("Target family", "value", ["cal target", "W/J target"])
+          + `<div class="status" data-unit-info>${propertyGroupInfoHtml("cal target")}</div>`;
       }
       return inputRow("Value", "value") + inputRow("Unit", "unit");
+    }
+
+    function selectedFileEntries() {
+      return files.map((item, index) => ({ item, index })).filter(entry => entry.item.selected !== false);
+    }
+
+    function unitValuesForItem(item, field) {
+      const values = item.units && item.units[field] ? item.units[field] : [];
+      return values.length ? values.join(", ") : "-";
+    }
+
+    function unitSummaryLine(field, target) {
+      const selected = selectedFileEntries();
+      if (!selected.length) return `${escapeHtml(field)}: no selected files`;
+      const values = selected.map(({ item, index }) => ({ index, unit: unitValuesForItem(item, field) }));
+      const unique = [...new Set(values.map(value => value.unit))];
+      if (unique.length === 1) return `${escapeHtml(field)}: ${escapeHtml(unique[0])} -> ${escapeHtml(target || "-")}`;
+      return `${escapeHtml(field)}: ${values.map(value => `#${value.index + 1} ${escapeHtml(value.unit)}`).join(", ")} -> ${escapeHtml(target || "-")}`;
+    }
+
+    function unitConversionInfoHtml(field, target) {
+      return unitSummaryLine(field || "", target || "");
+    }
+
+    function propertyGroupInfoHtml(family) {
+      const wantsCal = String(family || "").toLowerCase().includes("cal");
+      const targets = [
+        ["Heat capacity", wantsCal ? "kcal/hr" : "kW"],
+        ["O.H.T.C", wantsCal ? "kcal/(m2*h*K)" : "W/(m2*K)"],
+        ["Specific heat capacity (Liquid)", wantsCal ? "kcal/(kg*K)" : "kJ/(kg*K)"],
+        ["Thermal conductivity (Liquid)", wantsCal ? "kcal/(m*h*K)" : "W/(m*K)"],
+        ["Latent heat", wantsCal ? "kcal/kg" : "kJ/kg"]
+      ];
+      return targets.map(([field, target]) => unitSummaryLine(field, target)).join("<br>");
     }
 
     function cloneDatasheetFormHtml() {
