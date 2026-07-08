@@ -1644,16 +1644,19 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }
 
     function basicInfoFormHtml() {
-      return `
-        <div class="field-row">
-          <label>Item No.</label>
-          <label class="check-row">
-            <input type="checkbox" data-key="basicAutoItemNo">
-            Auto HEX-1 by list no
-          </label>
-        </div>
-        ${BASIC_INFO_FIELDS.map(field => inputRow(field, `basic_${fieldKey(field)}`)).join("")}
-      `;
+      return BASIC_INFO_FIELDS.map(field => {
+        const row = inputRow(field, `basic_${fieldKey(field)}`);
+        if (field !== "Item No.") return row;
+        return row + `
+          <div class="field-row">
+            <label></label>
+            <label class="check-row">
+              <input type="checkbox" data-key="basicAutoItemNo">
+              Auto HEX-1 by list no
+            </label>
+          </div>
+        `;
+      }).join("");
     }
 
     function dutyValuesFormHtml() {
