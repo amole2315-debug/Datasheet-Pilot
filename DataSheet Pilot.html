@@ -3133,10 +3133,22 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }
 
     function bodyNodesForPageLimit(body, pageLimit) {
+      const bodyNodes = [...body.childNodes].filter(node => !(node.nodeType === 1 && node.localName === "sectPr"));
+      if (bodyNodes.some(node => isMpxPageHeaderNode(node))) {
+        const nodes = [];
+        let pageNumber = 0;
+        for (const node of bodyNodes) {
+          if (isMpxPageHeaderNode(node)) {
+            pageNumber += 1;
+            if (pageNumber > pageLimit) break;
+          }
+          nodes.push(node);
+        }
+        return trimTrailingBlankParagraphs(nodes);
+      }
       const nodes = [];
       let pageBreaks = 0;
-      for (const node of [...body.childNodes]) {
-        if (node.nodeType === 1 && node.localName === "sectPr") continue;
+      for (const node of bodyNodes) {
         nodes.push(node);
         if (nodeHasPageBoundary(node)) {
           pageBreaks += 1;
@@ -3144,6 +3156,26 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         }
       }
       return nodes;
+    }
+
+    function isMpxPageHeaderNode(node) {
+      if (node.nodeType !== 1) return false;
+      return /SW\s*:\s*MPX2\s+Ver\.\s*:/i.test(normalize(nodeText(node)));
+    }
+
+    function nodeText(node) {
+      if (node.nodeType !== 1) return "";
+      return [...node.getElementsByTagNameNS("*", "t")].map(textNode => textNode.textContent || "").join(" ");
+    }
+
+    function trimTrailingBlankParagraphs(nodes) {
+      const trimmed = [...nodes];
+      while (trimmed.length) {
+        const last = trimmed[trimmed.length - 1];
+        if (last.nodeType !== 1 || last.localName !== "p" || normalize(nodeText(last))) break;
+        trimmed.pop();
+      }
+      return trimmed;
     }
 
     function nodeHasPageBoundary(node) {
