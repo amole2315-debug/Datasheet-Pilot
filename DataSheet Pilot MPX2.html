@@ -462,7 +462,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       </div>
       <div class="side-body">
         <div class="field-row">
-          <label for="renameOutput">Rename files</label>
+          <label for="renamePattern">Rename files</label>
+          <input id="renamePattern" type="text" placeholder="{item}_{model}_{plates}_{form}">
+        </div>
+        <div class="field-row">
+          <span></span>
           <label class="check-row">
             <input id="renameOutput" type="checkbox">
             Item No._result_form
@@ -949,6 +953,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     const dynamicForm = document.getElementById("dynamicForm");
     const taskList = document.getElementById("taskList");
     const previewText = document.getElementById("previewText");
+    const renamePattern = document.getElementById("renamePattern");
     const renameOutput = document.getElementById("renameOutput");
     const applyTaskBtn = document.getElementById("applyTaskBtn");
     const cancelTaskEditBtn = document.getElementById("cancelTaskEditBtn");
@@ -3451,10 +3456,38 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return value || fallback;
     }
 
+    function formatRenamePattern(pattern, item, info) {
+      const base = item.name.replace(/\\/g, "/").split("/").pop().replace(/\.docx$/i, "");
+      const fileIndex = files.indexOf(item);
+      const tokens = {
+        item: info.itemNo || "",
+        itemNo: info.itemNo || "",
+        model: info.result || modelFromText(item.result) || "",
+        result: info.result || modelFromText(item.result) || "",
+        plates: plateText(info.plates),
+        form: item.form || "",
+        kind: item.kind || "",
+        name: base,
+        no: fileIndex >= 0 ? String(fileIndex + 1) : ""
+      };
+      let name = pattern.replace(/\{(itemNo|item|model|result|plates|form|kind|name|no)\}/gi, (_, key) => {
+        const match = Object.keys(tokens).find(token => token.toLowerCase() === key.toLowerCase());
+        return safeFilenamePart(tokens[match], "");
+      });
+      name = safeFilenamePart(name, "");
+      if (!/\.(docx)$/i.test(name)) name += ".docx";
+      if (!/\{(itemNo|item|model|result|plates|form|kind|name|no)\}/i.test(pattern) && files.length > 1) {
+        name = name.replace(/\.docx$/i, `_${fileIndex >= 0 ? fileIndex + 1 : 1}.docx`);
+      }
+      return name;
+    }
+
     async function outputNameFor(item, editor) {
       const base = item.name.replace(/\\/g, "/").split("/").pop().replace(/\.docx$/i, "");
-      if (!renameOutput.checked) return `${base}_corrected.docx`;
+      const pattern = normalize(renamePattern?.value || "");
+      if (!renameOutput.checked && !pattern) return `${base}_corrected.docx`;
       const info = await editor.filenameInfo();
+      if (pattern) return formatRenamePattern(pattern, item, info);
       const itemNo = safeFilenamePart(info.itemNo, "");
       const model = safeFilenamePart(info.result || modelFromText(item.result), "result");
       const plates = safeFilenamePart(plateText(info.plates), "");
