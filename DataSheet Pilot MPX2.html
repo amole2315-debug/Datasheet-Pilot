@@ -456,9 +456,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         <button id="downloadFilesBtn" class="active">Files</button>
         <button id="downloadBtn" class="primary">Download</button>
         <select id="mergePageLimit" title="Pages from each DOCX">
-          <option value="1">1 page</option>
-          <option value="2">2 pages</option>
-          <option value="3" selected>3 pages</option>
+          <option value="1" selected>1 page only</option>
         </select>
         <button id="mergeDocxBtn">Merge DOCX</button>
       </div>
@@ -3328,7 +3326,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }
 
     async function downloadMergedDocx() {
-      const pageLimit = Math.max(1, Math.min(3, Number(mergePageLimit.value) || 3));
+      const pageLimit = 1;
       const result = await buildSelectedDocxOutputs();
       if (!result) return;
       try {
@@ -3434,7 +3432,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       const text = normalize(nodeText(node));
       return /SW\s*:\s*MPX2\s+Ver\.\s*:/i.test(text)
         || /\bCalculation\s+Data\s+Sheet\b/i.test(text)
-        || /\bManufacturing\s+Specifications\b/i.test(text);
+        || /\bManu(?:facturing|facuring)\s+Specifications\b/i.test(text)
+        || /\bDimension\s+Sheet\b/i.test(text);
     }
 
     function nodeText(node) {
