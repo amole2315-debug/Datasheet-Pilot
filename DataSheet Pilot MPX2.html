@@ -1606,6 +1606,60 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       `;
     }
 
+    function connectionSparseControlHtml() {
+      return `
+        <div class="field-row">
+          <label></label>
+          <label class="check-row">
+            <input type="checkbox" data-key="connectionSparse">
+            Empty fields first
+          </label>
+        </div>
+      `;
+    }
+
+    function taskHasValue(task, key) {
+      if (!Object.prototype.hasOwnProperty.call(task, key)) return false;
+      const value = task[key];
+      return value !== "" && value !== null && value !== undefined && value !== false;
+    }
+
+    function connectionScopedKeysForTask(task, name, columns = ["hotIn", "hotOut", "coldIn", "coldOut"]) {
+      const keys = [`all${name}`, name.charAt(0).toLowerCase() + name.slice(1)];
+      const scope = task.connectionScope || "All same";
+      if (scope === "Hot / Cold") keys.push(`hot${name}`, `cold${name}`);
+      if (scope === "Individual") columns.forEach(column => keys.push(`${column}${name}`));
+      return keys;
+    }
+
+    function connectionTaskHasScopedValue(task, name) {
+      return connectionScopedKeysForTask(task, name).some(key => taskHasValue(task, key));
+    }
+
+    function bpheConnectionTaskHasScopedValue(task) {
+      const scope = task.bpheConnectionScope || "All same";
+      const keys = ["bpheAllConnection"];
+      if (scope === "Hot / Cold") keys.push("bpheHotConnection", "bpheColdConnection");
+      if (scope === "Individual") keys.push("bpheHotInConnection", "bpheHotOutConnection", "bpheColdInConnection", "bpheColdOutConnection");
+      return keys.some(key => taskHasValue(task, key));
+    }
+
+    function setConnectionBlankValues(container) {
+      const keepKeys = new Set(["connectionSparse", "productScope", "connectionScope", "bpheConnectionScope", "bpheConnectionModel", "htriBpheConnectionModel"]);
+      container.querySelectorAll("[data-key]").forEach(input => {
+        const key = input.dataset.key;
+        if (keepKeys.has(key)) return;
+        if (input.tagName === "SELECT") {
+          ensureOption(input, "");
+          input.value = "";
+        } else if (input.type === "checkbox") {
+          input.checked = false;
+        } else {
+          input.value = "";
+        }
+      });
+    }
+
     function scopedConnectionRows(prefix, title, standard) {
       const keyPrefix = prefix ? `${prefix}` : "all";
       const labelPrefix = title ? `${title} ` : "";
@@ -1731,6 +1785,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       const bpheConnectionValues = bpheConnectionOptions(bpheConnectionModel);
       return `
         <div class="kind-summary">Selected: ${escapeHtml(productScopeSummary())}</div>
+        ${connectionSparseControlHtml()}
         ${scopeControl}
         <div data-product-section="GPHE">
           ${selectRow("Plate material", "connectionPlateMaterial", CONNECTION_BASE_MATERIALS, "316L")}
@@ -1831,6 +1886,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }
 
     function setupConnectionForm(container = dynamicForm) {
+      const sparseSelect = container.querySelector("[data-key='connectionSparse']");
       const standardSelect = container.querySelector("[data-key='standard']");
       const scopeSelect = container.querySelector("[data-key='connectionScope']");
       const bpheScopeSelect = container.querySelector("[data-key='bpheConnectionScope']");
@@ -1838,6 +1894,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       const mpxBpheModelSelect = container.querySelector("[data-key='bpheConnectionModel']");
       const bpheModelSelect = container.querySelector("[data-key='htriBpheConnectionModel']");
       const bpheConnectionSelect = container.querySelector("[data-key='htriBpheConnection']");
+      const withBlankOption = values => sparseSelect && sparseSelect.checked ? ["", ...values.filter(value => value !== "")] : values;
       const refreshMaterialRows = () => {
         container.querySelectorAll("[data-connection-material-row]").forEach(row => {
           const prefix = row.dataset.connectionPrefix;
@@ -1849,7 +1906,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
             const options = ["RubberLined", "LapJoint"].includes(type)
               ? CONNECTION_RUBBER_LINING_MATERIALS
               : CONNECTION_LINING_MATERIALS;
-            updateSelectOptions(select, options);
+            updateSelectOptions(select, withBlankOption(options), sparseSelect && sparseSelect.checked ? "" : undefined);
           }
           row.style.display = connectionMaterialVisible(type, material) ? "" : "none";
         });
@@ -1866,23 +1923,23 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           section.style.display = sectionScope === "common" || sectionScope === productScope ? "" : "none";
         });
         if (bpheModelSelect && bpheConnectionSelect) {
-          updateSelectOptions(bpheConnectionSelect, bpheConnectionOptions(bpheModelSelect.value));
+          updateSelectOptions(bpheConnectionSelect, withBlankOption(bpheConnectionOptions(bpheModelSelect.value)), sparseSelect && sparseSelect.checked ? "" : undefined);
         }
         if (mpxBpheModelSelect) {
           const options = bpheConnectionOptions(mpxBpheModelSelect.value);
           container.querySelectorAll("[data-key^='bphe'][data-key$='Connection']").forEach(select => {
-            updateSelectOptions(select, options);
+            updateSelectOptions(select, withBlankOption(options), sparseSelect && sparseSelect.checked ? "" : undefined);
           });
         }
-        const standard = standardSelect ? standardSelect.value : "KS";
+        const standard = standardSelect && standardSelect.value ? standardSelect.value : "KS";
         container.querySelectorAll("[data-key$='Rating']").forEach(select => {
-          updateSelectOptions(select, connectionRatingOptions(standard));
+          updateSelectOptions(select, withBlankOption(connectionRatingOptions(standard)), sparseSelect && sparseSelect.checked ? "" : undefined);
         });
         container.querySelectorAll("[data-key$='Size']").forEach(select => {
-          updateSelectOptions(select, connectionSizeOptions(standard), select.value || "Auto");
+          updateSelectOptions(select, withBlankOption(connectionSizeOptions(standard)), sparseSelect && sparseSelect.checked ? "" : select.value || "Auto");
         });
         const htriFrameSelect = container.querySelector("[data-key='htriFrameMaterial']");
-        if (htriFrameSelect) htriFrameSelect.value = defaultFrameMaterialForStandard(standard);
+        if (htriFrameSelect && !(sparseSelect && sparseSelect.checked && standardSelect && !standardSelect.value)) htriFrameSelect.value = defaultFrameMaterialForStandard(standard);
         const scope = scopeSelect ? scopeSelect.value : "All same";
         container.querySelectorAll("[data-connection-scope]").forEach(section => {
           section.style.display = section.dataset.connectionScope === scope ? "" : "none";
@@ -1902,6 +1959,26 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if (productSelect) productSelect.addEventListener("change", refresh);
       if (mpxBpheModelSelect) mpxBpheModelSelect.addEventListener("change", refresh);
       if (bpheModelSelect) bpheModelSelect.addEventListener("change", refresh);
+      if (sparseSelect) {
+        sparseSelect.addEventListener("change", () => {
+          if (sparseSelect.checked) {
+            refresh();
+            setConnectionBlankValues(container);
+            sparseSelect.checked = true;
+          } else {
+            const productValue = productSelect ? productSelect.value : "";
+            const isHtriContainer = container.id === "htriDynamicForm";
+            if (isHtriContainer) renderHtriDynamicForm();
+            else renderDynamicForm();
+            const nextRoot = isHtriContainer ? htriDynamicForm : dynamicForm;
+            const nextProduct = nextRoot.querySelector("[data-key='productScope']");
+            if (nextProduct && productValue) {
+              nextProduct.value = productValue;
+              nextProduct.dispatchEvent(new Event("change"));
+            }
+          }
+        });
+      }
       refresh();
     }
 
@@ -2023,8 +2100,14 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
     function collectFormValues() {
       const task = { field: fieldSelect.value, mode: "set" };
+      const sparseConnection = isConnectionField(task.field) && dynamicForm.querySelector("[data-key='connectionSparse']")?.checked;
+      const keepEmptyConnectionKeys = new Set(["connectionSparse", "productScope", "connectionScope", "bpheConnectionScope", "bpheConnectionModel", "htriBpheConnectionModel"]);
       dynamicForm.querySelectorAll("[data-key]").forEach(input => {
         const key = input.dataset.key;
+        if (sparseConnection && !keepEmptyConnectionKeys.has(key)) {
+          const value = input.type === "checkbox" ? input.checked : input.value;
+          if (value === "" || value === false || value === null || value === undefined) return;
+        }
         if (key === "mode") {
           task.mode = input.value === "Convert unit" ? "convert" : "set";
         } else if (key === "unitTarget") {
@@ -2561,6 +2644,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
       applyConnectionTask(doc, task) {
         const productScope = task.productScope || "GPHE";
+        const sparse = Boolean(task.connectionSparse);
+        const has = (...keys) => !sparse || keys.some(key => taskHasValue(task, key));
+        const hasScoped = name => !sparse || connectionTaskHasScopedValue(task, name);
         const standard = connectionStandardPart(task.standard || "KS");
         const model = modelFromText(`${this.item.result || ""} ${this.item.name || ""}`);
         const baseMaterial = task.connectionPlateMaterial || "316L";
@@ -2574,18 +2660,20 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
             if (this.setMaterialValue(doc, "Soldering Material", task.solderingMaterial)) changed = true;
             if (modelPrefix && this.replaceBpModelPrefix(doc, modelPrefix)) changed = true;
           }
-          const hotConnection = this.bpheConnectionPair(
-            this.bpheConnectionScopedValue(task, "hotIn"),
-            this.bpheConnectionScopedValue(task, "hotOut")
-          );
-          const coldConnection = this.bpheConnectionPair(
-            this.bpheConnectionScopedValue(task, "coldIn"),
-            this.bpheConnectionScopedValue(task, "coldOut")
-          );
-          if ((hotConnection || coldConnection) && this.setBpheConnectionValues(doc, hotConnection, coldConnection)) changed = true;
+          if (!sparse || bpheConnectionTaskHasScopedValue(task)) {
+            const hotConnection = this.bpheConnectionPair(
+              this.bpheConnectionScopedValue(task, "hotIn"),
+              this.bpheConnectionScopedValue(task, "hotOut")
+            );
+            const coldConnection = this.bpheConnectionPair(
+              this.bpheConnectionScopedValue(task, "coldIn"),
+              this.bpheConnectionScopedValue(task, "coldOut")
+            );
+            if ((hotConnection || coldConnection) && this.setBpheConnectionValues(doc, hotConnection, coldConnection)) changed = true;
+          }
           return changed;
         }
-        if (this.setMaterialValue(doc, "Plate material", plateWithThickness)) changed = true;
+        if (has("connectionPlateMaterial", "plateThickness") && this.setMaterialValue(doc, "Plate material", plateWithThickness)) changed = true;
         const positions = [
           task.hotInPosition || "F2",
           task.hotOutPosition || "F3",
@@ -2602,23 +2690,24 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           const explicit = this.connectionScopedValue(task, `${component}Material`, column, "Auto");
           return autoConnectionMaterial(types[index], standard, baseMaterial, component.toLowerCase(), explicit);
         });
+        const explicitMaterialValues = component => columns.map(column => this.connectionScopedValue(task, `${component}Material`, column, ""));
         const liningValues = materialValues("Lining");
         const displayTypes = types.map((type, index) => connectionDisplayType(type, liningValues[index], studFlags[index]));
         const connectionTexts = columns.map((column, index) => `${ratings[index]} ${sizes[index]} ${displayTypes[index]}`.replace(/\s+/g, " ").trim());
         const hotConnection = this.connectionSideSummary(connectionTexts[0], connectionTexts[1]);
         const coldConnection = this.connectionSideSummary(connectionTexts[2], connectionTexts[3]);
-        if (this.setConnectionSummaryRow(doc, hotConnection, coldConnection)) changed = true;
-        if (this.setConnectionRow(doc, "Position", positions)) changed = true;
-        if (this.setConnectionRow(doc, "Rating", ratings)) changed = true;
-        if (this.setConnectionRow(doc, "Size", sizes)) changed = true;
-        if (this.setConnectionRow(doc, "Type", displayTypes)) changed = true;
-        if (this.setConnectionRow(doc, "Flange Material", materialValues("Flange"))) changed = true;
-        if (this.setConnectionRow(doc, "Nozzle Material", materialValues("Nozzle"))) changed = true;
-        if (this.setConnectionRow(doc, "Lining Material", liningValues)) changed = true;
+        if ((!sparse || hasScoped("Rating") || hasScoped("Size") || hasScoped("ConnectionType") || hasScoped("LiningMaterial") || hasScoped("StudType")) && this.setConnectionSummaryRow(doc, hotConnection, coldConnection)) changed = true;
+        if (has("hotInPosition", "hotOutPosition", "coldInPosition", "coldOutPosition") && this.setConnectionRow(doc, "Position", positions)) changed = true;
+        if (hasScoped("Rating") && this.setConnectionRow(doc, "Rating", ratings)) changed = true;
+        if (hasScoped("Size") && this.setConnectionRow(doc, "Size", sizes)) changed = true;
+        if (hasScoped("ConnectionType") && this.setConnectionRow(doc, "Type", displayTypes)) changed = true;
+        if (hasScoped("FlangeMaterial") && this.setConnectionRow(doc, "Flange Material", sparse ? explicitMaterialValues("Flange") : materialValues("Flange"))) changed = true;
+        if (hasScoped("NozzleMaterial") && this.setConnectionRow(doc, "Nozzle Material", sparse ? explicitMaterialValues("Nozzle") : materialValues("Nozzle"))) changed = true;
+        if (hasScoped("LiningMaterial") && this.setConnectionRow(doc, "Lining Material", sparse ? explicitMaterialValues("Lining") : liningValues)) changed = true;
         if (task.gasketMaterial && this.setMaterialValue(doc, "Gasket Material", task.gasketMaterial)) changed = true;
-        if (this.setMaterialValue(doc, "Frame material", frameMaterial)) changed = true;
-        if (this.updateFrameTypeMaterial(doc, frameMaterial)) changed = true;
-        if (this.setMaterialValue(doc, "Design code", designCodeForStandard(standard))) changed = true;
+        if (has("standard", "frameMaterial") && this.setMaterialValue(doc, "Frame material", frameMaterial)) changed = true;
+        if (has("standard", "frameMaterial") && this.updateFrameTypeMaterial(doc, frameMaterial)) changed = true;
+        if (has("standard") && this.setMaterialValue(doc, "Design code", designCodeForStandard(standard))) changed = true;
         return changed;
       }
 
@@ -4390,6 +4479,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       ].map(([label, key, value]) => selectRow(label, key, CONNECTION_POSITIONS, value)).join("");
       return `
         <div class="kind-summary">Selected: ${escapeHtml(kinds.length ? kinds.join(" + ") : "None")}</div>
+        ${connectionSparseControlHtml()}
         ${scopeControl}
         ${selectRow("Gasket Material", "htriGasketMaterial", ["", "NBR", "EPDM", "Viton", "Viton-G"])}
         <div data-product-section="BPHE">
@@ -4535,9 +4625,16 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
     function collectHtriFormValues() {
       const task = { field: htriFieldSelect.value, mode: "set" };
+      const sparseConnection = task.field === "Material" && htriDynamicForm.querySelector("[data-key='connectionSparse']")?.checked;
+      const keepEmptyConnectionKeys = new Set(["connectionSparse", "productScope", "connectionScope", "bpheConnectionScope", "bpheConnectionModel", "htriBpheConnectionModel"]);
       htriDynamicForm.querySelectorAll("[data-key]").forEach(input => {
         const key = input.dataset.key;
+        if (sparseConnection && !keepEmptyConnectionKeys.has(key)) {
+          const value = input.type === "checkbox" ? input.checked : input.value;
+          if (value === "" || value === false || value === null || value === undefined) return;
+        }
         if (key === "mode") task.mode = input.value === "Convert unit" ? "convert" : "set";
+        else if (input.type === "checkbox") task[key] = input.checked;
         else task[key] = input.value;
       });
       return task;
@@ -4621,7 +4718,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       htriDynamicForm.querySelectorAll("[data-key]").forEach(input => {
         const key = input.dataset.key;
         if (key === "mode") input.value = task.mode === "convert" ? "Convert unit" : "Set value";
-        if (Object.prototype.hasOwnProperty.call(task, key)) input.value = task[key] || "";
+        if (Object.prototype.hasOwnProperty.call(task, key)) {
+          if (input.type === "checkbox") input.checked = Boolean(task[key]);
+          else input.value = task[key] || "";
+        }
       });
       updateHtriApplyButton();
     }
@@ -4788,25 +4888,34 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         return true;
       }
       if (task.field === "Material") {
-        putOverride(overrides, "Gasket Material", task.htriGasketMaterial);
+        const sparse = Boolean(task.connectionSparse);
+        const putIfSet = (label, value) => {
+          if (!sparse || value) putOverride(overrides, label, value);
+        };
+        const hasConnectionValues = !sparse || taskHasValue(task, "htriBpheConnection") || connectionTaskHasScopedValue(task, "Rating") || connectionTaskHasScopedValue(task, "Size") || connectionTaskHasScopedValue(task, "ConnectionType") || connectionTaskHasScopedValue(task, "LiningMaterial") || connectionTaskHasScopedValue(task, "StudType");
+        putIfSet("Gasket Material", task.htriGasketMaterial);
         if ((task.productScope || "") !== "GPHE") {
-          putOverride(overrides, "Soldering Material", task.htriSolderingMaterial);
-          putOverride(overrides, "BPHE Connection", task.htriBpheConnection);
-          putOverride(overrides, "Connection Hot", task.htriBpheConnection);
-          putOverride(overrides, "Connection Cold", task.htriBpheConnection);
-          putOverride(overrides, "Inlet Connection", [task.htriBpheConnection]);
-          putOverride(overrides, "Outlet Connection", [task.htriBpheConnection]);
+          putIfSet("Soldering Material", task.htriSolderingMaterial);
+          if (!sparse || task.htriBpheConnection) {
+            putOverride(overrides, "BPHE Connection", task.htriBpheConnection);
+            putOverride(overrides, "Connection Hot", task.htriBpheConnection);
+            putOverride(overrides, "Connection Cold", task.htriBpheConnection);
+            putOverride(overrides, "Inlet Connection", [task.htriBpheConnection]);
+            putOverride(overrides, "Outlet Connection", [task.htriBpheConnection]);
+          }
         }
         if ((task.productScope || "GPHE") !== "BPHE") {
           const standard = connectionStandardPart(task.standard || "KS");
           const baseMaterial = task.htriConnectionMaterial || "316L";
           const connection = connectionTaskDetails(task);
-          putOverride(overrides, "Plate Material", plateMaterialForStandard(baseMaterial, standard));
-          putOverride(overrides, "Frame Material", task.htriFrameMaterial || defaultFrameMaterialForStandard(standard));
-          putOverride(overrides, "Connection Hot", connection.hotConnection);
-          putOverride(overrides, "Connection Cold", connection.coldConnection);
-          putOverride(overrides, "Inlet Connection", [connection.hotConnection]);
-          putOverride(overrides, "Outlet Connection", [connection.coldConnection]);
+          if (!sparse || task.htriConnectionMaterial) putOverride(overrides, "Plate Material", plateMaterialForStandard(baseMaterial, standard));
+          if (!sparse || task.htriFrameMaterial || task.standard) putOverride(overrides, "Frame Material", task.htriFrameMaterial || defaultFrameMaterialForStandard(standard));
+          if (hasConnectionValues) {
+            putOverride(overrides, "Connection Hot", connection.hotConnection);
+            putOverride(overrides, "Connection Cold", connection.coldConnection);
+            putOverride(overrides, "Inlet Connection", [connection.hotConnection]);
+            putOverride(overrides, "Outlet Connection", [connection.coldConnection]);
+          }
         }
         return true;
       }
