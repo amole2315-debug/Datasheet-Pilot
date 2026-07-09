@@ -1552,6 +1552,34 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return keys.some(key => taskHasValue(task, key));
     }
 
+    function connectionRequiredKeysForScope(task, name) {
+      const scope = task.connectionScope || "All same";
+      if (scope === "Individual") return ["hotIn", "hotOut", "coldIn", "coldOut"].map(column => `${column}${name}`);
+      if (scope === "Hot / Cold") return [`hot${name}`, `cold${name}`];
+      return [`all${name}`];
+    }
+
+    function validateConnectionCoreComplete(task) {
+      if ((task.productScope || "GPHE") === "BPHE") return "";
+      const touchesConnectionCore = taskHasValue(task, "standard")
+        || connectionTaskHasScopedValue(task, "Rating")
+        || connectionTaskHasScopedValue(task, "Size")
+        || connectionTaskHasScopedValue(task, "ConnectionType");
+      if (!touchesConnectionCore) return "";
+      const missing = [];
+      if (!taskHasValue(task, "standard")) missing.push("Standard");
+      [
+        ["Rating", "Rating"],
+        ["Size", "Size"],
+        ["ConnectionType", "Type"]
+      ].forEach(([name, label]) => {
+        const keys = connectionRequiredKeysForScope(task, name);
+        if (keys.some(key => !taskHasValue(task, key))) missing.push(label);
+      });
+      if (!missing.length) return "";
+      return `Connection 수정은 Standard, Rating, Size, Type을 한 세트로 모두 입력해야 합니다.\n누락: ${[...new Set(missing)].join(", ")}`;
+    }
+
     function setConnectionBlankValues(container) {
       const keepKeys = new Set(["connectionSparse", "productScope", "connectionScope", "bpheConnectionScope", "bpheConnectionModel", "htriBpheConnectionModel"]);
       container.querySelectorAll("[data-key]").forEach(input => {
@@ -2038,6 +2066,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         return;
       }
       const task = collectFormValues();
+      if (isConnectionField(task.field)) {
+        const connectionError = validateConnectionCoreComplete(task);
+        if (connectionError) {
+          alert(connectionError);
+          return;
+        }
+      }
       if (task.field === "Clone Datasheet") {
         const sourceIndex = cloneSourceIndex(task.cloneSourceNo);
         if (sourceIndex < 0 || !files[sourceIndex]) {
@@ -4361,6 +4396,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         return;
       }
       const task = collectHtriFormValues();
+      if (task.field === "Material") {
+        const connectionError = validateConnectionCoreComplete(task);
+        if (connectionError) {
+          alert(connectionError);
+          return;
+        }
+      }
       if (task.field === "Material" && task.productScope) {
         const scopedTargets = targets.filter(index => htriFiles[index] && htriFiles[index].kind === task.productScope);
         if (!scopedTargets.length) {
