@@ -40,6 +40,18 @@ function writeHtriExcelCopyScript(tempRoot) {
     "$model = First-NonBlank @((Model-FromName (T $fin 'Y11')), (Model-FromName $base), (Model-FromName (T $api 'L10')), (Model-FromName (T $fin 'L11')), (Model-FromName (T $api 'D6')), (Model-FromName (T $api 'M9')))",
     'model extraction'
   );
+  script = patchScript(
+    script,
+    /function Unit-Text\(\[string\]\$unit\) \{\r?\n  \$u = \(\[string\]\$unit\)\.Trim\(\)\r?\n  if \(\[string\]::IsNullOrWhiteSpace\(\$u\)\) \{ return '' \}\r?\n  if \(\$u\.StartsWith\('\('\) -and \$u\.EndsWith\('\)'\)\) \{ return \$u \}\r?\n  return '\(' \+ \$u \+ '\)'\r?\n\}/,
+    "function Unit-Text([string]$unit) {\r\n  $u = ([string]$unit).Trim()\r\n  if ([string]::IsNullOrWhiteSpace($u)) { return '' }\r\n  if ($u.StartsWith('(') -and $u.EndsWith(')')) { return $u }\r\n  return '(' + $u + ')'\r\n}\r\n\r\nfunction Unit-From-Label([string]$text) {\r\n  $s = ([string]$text).Trim()\r\n  if ([string]::IsNullOrWhiteSpace($s)) { return '' }\r\n  if ($s -match ',\\s*([^,()]+)$') { return $matches[1].Trim() }\r\n  if ($s -match '\\(([^()]*)\\)\\s*$') { return $matches[1].Trim() }\r\n  return ''\r\n}",
+    'unit label extraction'
+  );
+  script = patchScript(
+    script,
+    /  Put \$ds 'J12' '\(kcal\/hr\)'/,
+    "  $heatExchangedUnit = First-NonBlank @((Unit-From-Label (T $api 'A40')), (Unit-From-Label (T $api 'B40')), (Unit-From-Label (T $api 'C40')), (Unit-From-Label (T $api 'D40')), (Unit-From-Label (T $api 'E40')), (Unit-From-Label (T $api 'F40')), (Unit-From-Label (T $api 'G40')), (Unit-From-Label (T $api 'H40')), (Unit-From-Label (T $api 'I40')), (Unit-From-Label (T $api 'J40')), (Unit-From-Label (T $api 'K40')), (T $api 'I40'))\r\n  if ([string]::IsNullOrWhiteSpace([string]$heatExchangedUnit)) { $heatExchangedUnit = 'kcal/hr' }\r\n  Put $ds 'J12' (Unit-Text $heatExchangedUnit)",
+    'heat exchanged unit'
+  );
   script = patchAll(script, /\[Math\]::Round\(\(\$n \* \$from \/ \$to\), 6\)/g, "[Math]::Round(($n * $from / $to), 3)", 'unit conversion precision');
   script = patchAll(script, /NumberFormat = '0\.######'/g, "NumberFormat = '0.###'", 'unit conversion number format');
   script = patchScript(

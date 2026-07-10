@@ -4542,17 +4542,33 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return (row || []).map(value => String(value == null ? "" : value).trim());
     }
 
+    function htriLabelParts(text) {
+      const raw = String(text || "").trim();
+      const comma = raw.match(/^(.+?),\s*([^,]+)$/);
+      if (comma) return { label: comma[1].trim(), unit: comma[2].trim() };
+      const paren = raw.match(/^(.+?)\s*\(([^()]+)\)\s*$/);
+      if (paren) return { label: paren[1].trim(), unit: paren[2].trim() };
+      return { label: raw, unit: "" };
+    }
+
     function htriRowByLabel(rows, label) {
       const want = String(label).toLowerCase();
-      return rows.map(htriCleanRow).find(row => row.some(cell => cell.toLowerCase() === want)) || [];
+      const wantBase = htriLabelParts(label).label.toLowerCase();
+      const cleanRows = rows.map(htriCleanRow);
+      return cleanRows.find(row => row.some(cell => cell.toLowerCase() === want))
+        || cleanRows.find(row => row.some(cell => htriLabelParts(cell).label.toLowerCase() === wantBase))
+        || [];
     }
 
     function htriRowValues(rows, label) {
       const row = htriRowByLabel(rows, label);
-      const idx = row.findIndex(cell => cell.toLowerCase() === String(label).toLowerCase());
+      const want = String(label).toLowerCase();
+      const wantBase = htriLabelParts(label).label.toLowerCase();
+      const idx = row.findIndex(cell => cell.toLowerCase() === want || htriLabelParts(cell).label.toLowerCase() === wantBase);
       if (idx < 0) return { unit: "", values: [] };
+      const labelUnit = htriLabelParts(row[idx]).unit;
       const rest = row.slice(idx + 1).filter(value => value !== "");
-      const unit = rest[0] && /[a-z%/()°-]/i.test(rest[0]) ? rest.shift() : "";
+      const unit = labelUnit || (rest[0] && /[a-z%/()°-]/i.test(rest[0]) ? rest.shift() : "");
       return { unit, values: rest };
     }
 
@@ -4736,7 +4752,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       const pressureDrop = htriRowValues(api, "Pressure Drop Allowed/Calc'd");
       const designPressure = htriRowValues(api, "Design/Test Pressure");
       const designTemp = htriRowValues(api, "Design/MDMT Temperature");
-      const duty = htriRowValues(api, "Heat Exchanged, kcal/hr");
+      const duty = htriRowValues(api, "Heat Exchanged");
       const lmtd = htriRowValues(api, "LMTD, deg C");
       const transfer = htriRowValues(api, "Transfer Rate, W/m2-K, Clean");
       const area = htriRowValues(api, "Area Per Unit (m2)");
@@ -4772,6 +4788,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         "Design/Test Pressure": designPressure.values,
         "Design/MDMT Temperature Unit": designTemp.unit,
         "Design/MDMT Temperature": designTemp.values,
+        "Heat Exchanged Unit": duty.unit,
         "Heat Exchanged": duty.values[0] || "",
         "LMTD": lmtd.values[0] || "",
         "Transfer Rate Clean": transfer.values[0] || "",
