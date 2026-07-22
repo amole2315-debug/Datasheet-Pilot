@@ -54,6 +54,19 @@ function writeHtriExcelCopyScript(tempRoot) {
   );
   script = patchScript(
     script,
+    /function Set-ModelPrefix\(\[string\]\$model, \[string\]\$material\) \{\r?\n  \$m = \(\[string\]\$model\)\.Trim\(\)\r?\n  if \(\$m -notmatch '\^\(MC\|MS\)'\) \{ return \$m \}\r?\n  if \(\$material -match 'Stainless\|SUS\|\^MS\$'\) \{ return \(\$m -replace '\^\(MC\|MS\)', 'MS'\) \}\r?\n  if \(\$material -match 'Copper\|\^MC\$'\) \{ return \(\$m -replace '\^\(MC\|MS\)', 'MC'\) \}\r?\n  return \$m\r?\n\}/,
+    "function Set-ModelPrefix([string]$model, [string]$material) {\r\n  $m = ([string]$model).Trim()\r\n  if (-not ($m.StartsWith('MC') -or $m.StartsWith('MS'))) { return $m }\r\n  $rest = if ($m.Length -gt 2) { $m.Substring(2) } else { '' }\r\n  $mat = ([string]$material).Trim().ToUpperInvariant()\r\n  if ($mat.Contains('STAINLESS') -or $mat.Contains('SUS') -or $mat -eq 'MS') { return 'MS' + $rest }\r\n  if ($mat.Contains('COPPER') -or $mat -eq 'MC') { return 'MC' + $rest }\r\n  return $m\r\n}",
+    'model prefix without regex'
+  );
+  script = patchScript(
+    script,
+    /function Display-Solder\(\[string\]\$material, \[string\]\$model\) \{\r?\n  if \(\$material -match 'Stainless\|SUS\|\^MS\$'\) \{ return 'Stainless Steel' \}\r?\n  if \(\$material -match 'Copper\|\^MC\$'\) \{ return 'Copper' \}\r?\n  if \(\$model -match '\^MS'\) \{ return 'Stainless Steel' \}\r?\n  return 'Copper'\r?\n\}/,
+    "function Display-Solder([string]$material, [string]$model) {\r\n  $mat = ([string]$material).Trim().ToUpperInvariant()\r\n  if ($mat.Contains('STAINLESS') -or $mat.Contains('SUS') -or $mat -eq 'MS') { return 'Stainless Steel' }\r\n  if ($mat.Contains('COPPER') -or $mat -eq 'MC') { return 'Copper' }\r\n  if (([string]$model).Trim().StartsWith('MS')) { return 'Stainless Steel' }\r\n  return 'Copper'\r\n}",
+    'solder display without regex'
+  );
+  script = patchAll(script, /\('\(' \+ \(T \$api '([^']+)'\) \+ '\)'\)/g, "(Unit-Text (T $api '$1'))", 'api unit text');
+  script = patchScript(
+    script,
     /  Put \$ds 'J12' '\(kcal\/hr\)'/,
     "  $heatExchangedUnit = First-NonBlank @((Unit-From-Label (T $api 'A40')), (Unit-From-Label (T $api 'B40')), (Unit-From-Label (T $api 'C40')), (Unit-From-Label (T $api 'D40')), (Unit-From-Label (T $api 'E40')), (Unit-From-Label (T $api 'F40')), (Unit-From-Label (T $api 'G40')), (Unit-From-Label (T $api 'H40')), (Unit-From-Label (T $api 'I40')), (Unit-From-Label (T $api 'J40')), (Unit-From-Label (T $api 'K40')), (T $api 'I40'))\r\n  if ([string]::IsNullOrWhiteSpace([string]$heatExchangedUnit)) { $heatExchangedUnit = 'kcal/hr' }\r\n  Put $ds 'J12' (Unit-Text $heatExchangedUnit)",
     'heat exchanged unit'
