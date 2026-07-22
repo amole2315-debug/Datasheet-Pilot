@@ -48,6 +48,12 @@ function writeHtriExcelCopyScript(tempRoot) {
   );
   script = patchScript(
     script,
+    /function Split-Pair\(\[string\]\$text\) \{\r?\n  \$parts = \(\[string\]\$text\) -split '\\s\*\/\\s\*\|\\s\*,\\s\*'\r?\n  if \(\$parts\.Count -ge 2\) \{ return @\(\$parts\[0\]\.Trim\(\), \$parts\[1\]\.Trim\(\)\) \}\r?\n  return @\(\(\[string\]\$text\)\.Trim\(\), ''\)\r?\n\}/,
+    "function Split-Pair([string]$text) {\r\n  $s = ([string]$text).Trim()\r\n  $slash = $s.IndexOf('/')\r\n  if ($slash -ge 0) { return @($s.Substring(0, $slash).Trim(), $s.Substring($slash + 1).Trim()) }\r\n  $comma = $s.IndexOf(',')\r\n  if ($comma -ge 0) { return @($s.Substring(0, $comma).Trim(), $s.Substring($comma + 1).Trim()) }\r\n  return @($s, '')\r\n}",
+    'split pair without regex'
+  );
+  script = patchScript(
+    script,
     /  Put \$ds 'J12' '\(kcal\/hr\)'/,
     "  $heatExchangedUnit = First-NonBlank @((Unit-From-Label (T $api 'A40')), (Unit-From-Label (T $api 'B40')), (Unit-From-Label (T $api 'C40')), (Unit-From-Label (T $api 'D40')), (Unit-From-Label (T $api 'E40')), (Unit-From-Label (T $api 'F40')), (Unit-From-Label (T $api 'G40')), (Unit-From-Label (T $api 'H40')), (Unit-From-Label (T $api 'I40')), (Unit-From-Label (T $api 'J40')), (Unit-From-Label (T $api 'K40')), (T $api 'I40'))\r\n  if ([string]::IsNullOrWhiteSpace([string]$heatExchangedUnit)) { $heatExchangedUnit = 'kcal/hr' }\r\n  Put $ds 'J12' (Unit-Text $heatExchangedUnit)",
     'heat exchanged unit'
