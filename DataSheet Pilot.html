@@ -4942,7 +4942,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       htriStatus.textContent = "Sending HTRI file(s) to converter...";
       const response = await fetch("/api/htri-convert", { method: "POST", body: form });
       console.log("HTRI convert response", { ok: response.ok, status: response.status });
-      if (!response.ok) throw new Error(await response.text());
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("HTRI convert failed", { status: response.status, error: errorText });
+        throw new Error(errorText || `HTTP ${response.status}`);
+      }
       const disposition = response.headers.get("Content-Disposition") || "";
       const match = disposition.match(/filename\*?=(?:UTF-8''|\")?([^";]+)/i);
       const serverFilename = match ? decodeURIComponent(match[1].replace(/"/g, "")) : (selected.length > 1 ? "HTRI_Datasheets.zip" : "HTRI_Datasheet.xlsm");

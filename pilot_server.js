@@ -176,6 +176,7 @@ async function handleHtriConvert(req, res) {
       manifest.files.push({ name: filename, path: filePath, kind: kindText === 'GPHE' ? 'GPHE' : 'BPHE', overrides: overrides[indexText] || {} });
     }
     if (!manifest.files.length) throw new Error('No HTRI files were uploaded');
+    console.log('[HTRI] convert start', manifest.files.map(file => `${file.kind}:${file.name}`).join(', '));
     const manifestPath = path.join(tempRoot, 'manifest.json');
     fs.writeFileSync(manifestPath, JSON.stringify(manifest), 'utf8');
     const psPath = writeHtriExcelCopyScript(tempRoot);
@@ -188,7 +189,12 @@ async function handleHtriConvert(req, res) {
     child.stderr.on('data', data => stderr += data.toString());
     child.on('close', code => {
       try {
-        if (code !== 0) throw new Error(stderr || stdout || `PowerShell exited ${code}`);
+        if (code !== 0) {
+          console.error(`[HTRI] PowerShell failed with exit code ${code}`);
+          if (stdout.trim()) console.error(`[HTRI] stdout:\n${stdout.trim()}`);
+          if (stderr.trim()) console.error(`[HTRI] stderr:\n${stderr.trim()}`);
+          throw new Error(stderr || stdout || `PowerShell exited ${code}`);
+        }
         const line = stdout.trim().split(/\r?\n/).filter(Boolean).pop();
         const result = JSON.parse(line);
         const outPath = result.path;
@@ -200,11 +206,15 @@ async function handleHtriConvert(req, res) {
         });
         fs.createReadStream(outPath).pipe(res);
       } catch (error) {
-        send(res, 500, String(error.message || error));
+        const message = String(error.message || error);
+        console.error(`[HTRI] conversion failed:\n${message}`);
+        send(res, 500, message);
       }
     });
   } catch (error) {
-    send(res, 500, String(error.message || error));
+    const message = String(error.message || error);
+    console.error(`[HTRI] conversion failed:\n${message}`);
+    send(res, 500, message);
   }
 }
 
