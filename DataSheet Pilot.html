@@ -1140,9 +1140,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return "-";
     }
 
-    function connectionDisplayType(type, liningMaterial, studType) {
+    function connectionDisplayType(type, liningMaterial, studType, flangeMaterial = "") {
+      const flange = String(flangeMaterial || "").trim();
       const lining = String(liningMaterial || "").trim();
       const hasLining = lining && lining !== "-";
+      if (["SORF", "SOFF", "WNRF"].includes(type)) {
+        return flange && flange !== "-" ? `${type}(${flange})` : type;
+      }
       if (type === "UnLined") {
         return studType ? "UnLined (Stud Type)" : "UnLined";
       }
@@ -1188,9 +1192,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         const explicit = connectionScopedTaskValue(task, `${component}Material`, column, "Auto");
         return autoConnectionMaterial(types[index], standard, baseMaterial, component.toLowerCase(), explicit);
       });
+      const flangeValues = materialValues("Flange");
+      const nozzleValues = materialValues("Nozzle");
       const liningValues = materialValues("Lining");
-      const displayTypes = types.map((type, index) => connectionDisplayType(type, liningValues[index], studFlags[index]));
-      const connectionTexts = columns.map((column, index) => `${standard} ${ratings[index]} ${sizes[index]} ${displayTypes[index]}`.replace(/\s+/g, " ").trim());
+      const displayTypes = types.map((type, index) => connectionDisplayType(type, liningValues[index], studFlags[index], flangeValues[index]));
+      const connectionTexts = columns.map((column, index) => `${ratings[index]} ${sizes[index]} ${displayTypes[index]}`.replace(/\s+/g, " ").trim());
       const sideSummary = (inlet, outlet) => inlet === outlet ? inlet : `In: ${inlet} / Out: ${outlet}`;
       return {
         standard,
@@ -1201,8 +1207,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         ratings,
         sizes,
         displayTypes,
-        flangeValues: materialValues("Flange"),
-        nozzleValues: materialValues("Nozzle"),
+        flangeValues,
+        nozzleValues,
         liningValues
       };
     }
@@ -2534,18 +2540,20 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           return autoConnectionMaterial(types[index], standard, baseMaterial, component.toLowerCase(), explicit);
         });
         const explicitMaterialValues = component => columns.map(column => this.connectionScopedValue(task, `${component}Material`, column, ""));
+        const flangeValues = materialValues("Flange");
+        const nozzleValues = materialValues("Nozzle");
         const liningValues = materialValues("Lining");
-        const displayTypes = types.map((type, index) => connectionDisplayType(type, liningValues[index], studFlags[index]));
+        const displayTypes = types.map((type, index) => connectionDisplayType(type, liningValues[index], studFlags[index], flangeValues[index]));
         const connectionTexts = columns.map((column, index) => `${ratings[index]} ${sizes[index]} ${displayTypes[index]}`.replace(/\s+/g, " ").trim());
         const hotConnection = this.connectionSideSummary(connectionTexts[0], connectionTexts[1]);
         const coldConnection = this.connectionSideSummary(connectionTexts[2], connectionTexts[3]);
-        if ((!sparse || hasScoped("Rating") || hasScoped("Size") || hasScoped("ConnectionType") || hasScoped("LiningMaterial") || hasScoped("StudType")) && this.setConnectionSummaryRow(doc, hotConnection, coldConnection)) changed = true;
+        if ((!sparse || hasScoped("Rating") || hasScoped("Size") || hasScoped("ConnectionType") || hasScoped("FlangeMaterial") || hasScoped("NozzleMaterial") || hasScoped("LiningMaterial") || hasScoped("StudType")) && this.setConnectionSummaryRow(doc, hotConnection, coldConnection)) changed = true;
         if (has("hotInPosition", "hotOutPosition", "coldInPosition", "coldOutPosition") && this.setConnectionRow(doc, "Position", positions)) changed = true;
         if (hasScoped("Rating") && this.setConnectionRow(doc, "Rating", ratings)) changed = true;
         if (hasScoped("Size") && this.setConnectionRow(doc, "Size", sizes)) changed = true;
         if (hasScoped("ConnectionType") && this.setConnectionRow(doc, "Type", displayTypes)) changed = true;
-        if (hasScoped("FlangeMaterial") && this.setConnectionRow(doc, "Flange Material", sparse ? explicitMaterialValues("Flange") : materialValues("Flange"))) changed = true;
-        if (hasScoped("NozzleMaterial") && this.setConnectionRow(doc, "Nozzle Material", sparse ? explicitMaterialValues("Nozzle") : materialValues("Nozzle"))) changed = true;
+        if (hasScoped("FlangeMaterial") && this.setConnectionRow(doc, "Flange Material", sparse ? explicitMaterialValues("Flange") : flangeValues)) changed = true;
+        if (hasScoped("NozzleMaterial") && this.setConnectionRow(doc, "Nozzle Material", sparse ? explicitMaterialValues("Nozzle") : nozzleValues)) changed = true;
         if (hasScoped("LiningMaterial") && this.setConnectionRow(doc, "Lining Material", sparse ? explicitMaterialValues("Lining") : liningValues)) changed = true;
         if (task.gasketMaterial && this.setMaterialValue(doc, "Gasket Material", task.gasketMaterial)) changed = true;
         if (has("standard", "frameMaterial") && this.setMaterialValue(doc, "Frame material", frameMaterial)) changed = true;
@@ -4300,7 +4308,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           <div class="duty-head">Value</div>
           <div class="duty-head">Unit</div>
           <div class="duty-label">Design Temperature</div>
-          <div class="duty-cell">${defaultClearingTextarea("htriDesignTemperatureValue", "100")}</div>
+          <div class="duty-cell">${defaultClearingTextarea("htriDesignTemperatureValue", "0 / 100")}</div>
           <div class="duty-cell"><select data-key="htriDesignTemperatureUnit"><option value=""></option><option value="Deg C" selected>Deg C</option></select></div>
           <div class="duty-label">Design / Test Pressure</div>
           <div class="duty-cell">${defaultClearingTextarea("htriDesignPressureValue", "10 / 13")}</div>
@@ -4343,7 +4351,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       } else if (["Operating Pressure", "Pressure drop"].includes(field)) {
         htriDynamicForm.innerHTML = html + inputRow("Hot Side", "hot") + inputRow("Cold Side", "cold") + inputRow("Unit", "unit");
       } else if (field === "Design Temperature") {
-        htriDynamicForm.innerHTML = defaultClearInputRow("Value", "value", "100") + inputRow("Unit", "unit", "Deg C");
+        htriDynamicForm.innerHTML = defaultClearInputRow("Value", "value", "0 / 100") + inputRow("Unit", "unit", "Deg C");
       } else if (field === "Design / Test Pressure") {
         htriDynamicForm.innerHTML = html + defaultClearInputRow("Design / Test", "value", "10 / 13") + inputRow("Unit", "unit", "barG");
       } else if (field === "Heat capacity") {
@@ -4646,7 +4654,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         const putIfSet = (label, value) => {
           if (!sparse || value) putOverride(overrides, label, value);
         };
-        const hasConnectionValues = !sparse || taskHasValue(task, "htriBpheConnection") || connectionTaskHasScopedValue(task, "Rating") || connectionTaskHasScopedValue(task, "Size") || connectionTaskHasScopedValue(task, "ConnectionType") || connectionTaskHasScopedValue(task, "LiningMaterial") || connectionTaskHasScopedValue(task, "StudType");
+        const hasConnectionValues = !sparse || taskHasValue(task, "htriBpheConnection") || connectionTaskHasScopedValue(task, "Rating") || connectionTaskHasScopedValue(task, "Size") || connectionTaskHasScopedValue(task, "ConnectionType") || connectionTaskHasScopedValue(task, "FlangeMaterial") || connectionTaskHasScopedValue(task, "NozzleMaterial") || connectionTaskHasScopedValue(task, "LiningMaterial") || connectionTaskHasScopedValue(task, "StudType");
         putIfSet("Gasket Material", task.htriGasketMaterial);
         if ((task.productScope || "") !== "GPHE") {
           putIfSet("Soldering Material", task.htriSolderingMaterial);
