@@ -12,14 +12,14 @@ function writeHtriExcelCopyScript(tempRoot) {
   const psPath = path.join(tempRoot, 'htri_excel_copy.ps1');
   let script = Buffer.from(htriExcelCopyPs1Base64, 'base64').toString('utf8');
   const patchScript = (source, pattern, replacement, label) => {
-    const patched = source.replace(pattern, replacement);
+    const patched = source.replace(pattern, typeof replacement === 'function' ? replacement : () => replacement);
     if (patched === source) throw new Error(`Failed to patch HTRI ${label} script.`);
     return patched;
   };
   const patchAll = (source, pattern, replacement, label) => {
     if (!pattern.test(source)) throw new Error(`Failed to patch HTRI ${label} script.`);
     pattern.lastIndex = 0;
-    return source.replace(pattern, replacement);
+    return source.replace(pattern, typeof replacement === 'function' ? replacement : () => replacement);
   };
   const connectionBlock = "  if ($isGphe) {\r\n    Put $ds 'C40' (Override-Value $item 'Gasket Material' (T $ds 'C40'))\r\n    $plateMaterial = Override-Value $item 'Plate Material' ''\r\n    $frameMaterial = Override-Value $item 'Frame Material' 'C.S'\r\n    if (-not [string]::IsNullOrWhiteSpace([string]$plateMaterial)) { Put $ds 'C39' $plateMaterial }\r\n    Put $ds 'C43' $frameMaterial\r\n    $connectionHot = Override-Value $item 'Connection Hot' ''\r\n    $connectionCold = Override-Value $item 'Connection Cold' ''\r\n    if (-not [string]::IsNullOrWhiteSpace([string]$connectionHot)) { Put $ds 'C42' $connectionHot }\r\n    if (-not [string]::IsNullOrWhiteSpace([string]$connectionCold)) { Put $ds 'G42' $connectionCold }\r\n  }\r\n}";
   script = patchScript(
@@ -64,7 +64,7 @@ function writeHtriExcelCopyScript(tempRoot) {
     "function Display-Solder([string]$material, [string]$model) {\r\n  $mat = ([string]$material).Trim().ToUpperInvariant()\r\n  if ($mat.IndexOf('STAINLESS') -ge 0) { return 'Stainless Steel' }\r\n  if ($mat.IndexOf('SUS') -ge 0) { return 'Stainless Steel' }\r\n  if ($mat -eq 'MS') { return 'Stainless Steel' }\r\n  if ($mat.IndexOf('COPPER') -ge 0) { return 'Copper' }\r\n  if ($mat -eq 'MC') { return 'Copper' }\r\n  $modelText = ([string]$model).Trim()\r\n  if ($modelText.Length -ge 2) {\r\n    if ($modelText.Substring(0, 2) -eq 'MS') { return 'Stainless Steel' }\r\n  }\r\n  return 'Copper'\r\n}",
     'solder display without regex'
   );
-  script = patchAll(script, /\('\(' \+ \(T \$api '([^']+)'\) \+ '\)'\)/g, "(Unit-Text (T $api '$1'))", 'api unit text');
+  script = patchAll(script, /\('\(' \+ \(T \$api '([^']+)'\) \+ '\)'\)/g, (_match, addr) => `(Unit-Text (T $api '${addr}'))`, 'api unit text');
   script = patchScript(
     script,
     /  Put \$ds 'J12' '\(kcal\/hr\)'/,
