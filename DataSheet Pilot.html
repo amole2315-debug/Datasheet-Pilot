@@ -775,25 +775,21 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     ];
     const BPHE_CONNECTION_OPTIONS_BY_MODEL = {
       MC10: [
-        "PT 15A (F)", "PT 15A (M)", "PT 20A (F)", "PT 20A (M)", "PT 25A",
-        "SD 9.52 (F)", "SD 12.70 (F)"
+        "PT 15A (M)", "PT 20A (M)", "SD 9.52 (F)", "SD 12.70 (F)"
       ],
       MC20: [
-        "PT 15A (F)", "PT 20A (F)", "PT 20A (M)", "PT 25A (F)", "PT 25A (M)",
-        "G 3/4\"", "SD 9.52 (F)", "SD 12.70 (F)", "SD 15.88 (F)",
-        "SD 19.05 (F)", "SD 22.22 (F)", "SD 28.58 (F)", "WD 32A"
+        "PT 25A (F)", "PT 25A (M)", "SD 12.70 (F)", "SD 15.88 (F)",
+        "SD 19.05 (F)", "SD 22.22 (F)", "SD 28.58 (F)"
       ],
       MC30: [
-        "PT 20A (F)", "PT 25A (F)", "PT 25A (M)", "PT 32A (F)", "PT 32A (M)",
-        "NPT 32A (F)", "SD 12.70 (F)", "SD 15.88 (F)", "SD 19.05 (F)",
+        "PT 25A (F)", "PT 32A (M)", "SD 15.88 (F)", "SD 19.05 (F)",
         "SD 22.22 (F)", "SD 28.58 (F)", "SD 35.10 (F)", "SD 41.28 (F)",
         "WD 32A"
       ],
       MC60: [
-        "PT 20A (F)", "PT 20A (M)", "PT 25A (F)", "PT 40A (F)", "PT 40A (M)",
-        "PT 50A (M)", "SD 15.88 (F)", "SD 19.05 (F)", "SD 22.22 (F)",
-        "SD 28.58 (F)", "SD 35.10 (F)", "SD 41.28 (F)", "WD 40A",
-        "WD 50A", "SD/WD 54.3"
+        "PT 40A (F)", "PT 40A (M)", "PT 50A (M)", "SD 19.05 (F)",
+        "SD 22.22 (F)", "SD 28.58 (F)", "SD 35.10 (F)", "SD 41.28 (F)",
+        "SD/WD 54.3", "WD 40A", "WD 50A"
       ]
     };
     const HEAT_CAPACITY_UNITS = [
@@ -4238,13 +4234,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         <div class="kind-summary">Selected: ${escapeHtml(kinds.length ? kinds.join(" + ") : "None")}</div>
         ${connectionSparseControlHtml()}
         ${scopeControl}
-        ${selectRow("Gasket Material", "htriGasketMaterial", ["", "NBR", "EPDM", "Viton", "Viton-G"])}
         <div data-product-section="BPHE">
           ${selectRow("Soldering Material", "htriSolderingMaterial", ["", "Copper", "Stainless Steel"])}
           ${selectRow("BPHE Model", "htriBpheConnectionModel", bpheConnectionModels, bpheConnectionModel)}
           ${selectRow("Connection", "htriBpheConnection", bpheConnectionOptions(bpheConnectionModel))}
         </div>
         <div data-product-section="GPHE">
+          ${selectRow("Gasket Material", "htriGasketMaterial", ["", "NBR", "EPDM", "Viton", "Viton-G"])}
           ${selectRow("Connection material", "htriConnectionMaterial", CONNECTION_BASE_MATERIALS, "316L")}
           ${selectRow("Frame material", "htriFrameMaterial", ["SS275", "SA-516 Gr.70"], "SS275")}
           ${selectRow("Standard", "standard", CONNECTION_STANDARDS, standard)}
@@ -4655,7 +4651,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           if (!sparse || value) putOverride(overrides, label, value);
         };
         const hasConnectionValues = !sparse || taskHasValue(task, "htriBpheConnection") || connectionTaskHasScopedValue(task, "Rating") || connectionTaskHasScopedValue(task, "Size") || connectionTaskHasScopedValue(task, "ConnectionType") || connectionTaskHasScopedValue(task, "FlangeMaterial") || connectionTaskHasScopedValue(task, "NozzleMaterial") || connectionTaskHasScopedValue(task, "LiningMaterial") || connectionTaskHasScopedValue(task, "StudType");
-        putIfSet("Gasket Material", task.htriGasketMaterial);
+        if ((task.productScope || "GPHE") !== "BPHE") putIfSet("Gasket Material", task.htriGasketMaterial);
         if ((task.productScope || "") !== "GPHE") {
           putIfSet("Soldering Material", task.htriSolderingMaterial);
           if (!sparse || task.htriBpheConnection) {
