@@ -4602,12 +4602,18 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       let hasL = false;
       let hasH = false;
       (rows || []).forEach(row => {
-        const label = String((row || [])[20] || "").trim().toLowerCase();
-        if (!label.includes("chevron angle")) return;
-        const angle = Number(String((row || [])[24] || "").replace(/,/g, ""));
-        if (!Number.isFinite(angle)) return;
-        if (angle >= 45) hasH = true;
-        else hasL = true;
+        const cells = row || [];
+        cells.forEach((cell, index) => {
+          const label = String(cell || "").trim().toLowerCase();
+          if (!label.includes("chevron angle")) return;
+          for (let i = index + 1; i < cells.length; i += 1) {
+            const angle = Number(String(cells[i] || "").replace(/,/g, ""));
+            if (!Number.isFinite(angle)) continue;
+            if (angle >= 45) hasH = true;
+            else hasL = true;
+            break;
+          }
+        });
       });
       if (hasH && hasL) return "M";
       if (hasH) return "H";
