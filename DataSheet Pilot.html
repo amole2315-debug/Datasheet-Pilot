@@ -4000,8 +4000,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         setSheetValue(ws, "C32", model);
         setSheetValue(ws, "F35", summary["Plate Thickness"]);
         setSheetValue(ws, "C40", summary["Gasket Material"] || "NBR");
-        setSheetValue(ws, "C41", passes.length ? `${passes[0]} x ${passes[2] || passes[1] || ""}` : "");
-        setSheetValue(ws, "G41", passes.length ? `${passes[3] || passes[0]} x ${passes[5] || passes[4] || ""}` : "");
+        setSheetValue(ws, "C41", passes.length ? htriChannelText(passes[0], passes[2] || passes[1] || "", summary["Chevron Channel Type"]) : "");
+        setSheetValue(ws, "G41", passes.length ? htriChannelText(passes[3] || passes[0], passes[5] || passes[4] || "", summary["Chevron Channel Type"]) : "");
         setSheetValue(ws, "C42", inlet.join(" "));
         setSheetValue(ws, "G42", outlet.join(" "));
         setSheetValue(ws, "C43", summary["Frame Material"] || "C.S");
@@ -4598,6 +4598,30 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return "";
     }
 
+    function htriChevronChannelType(rows) {
+      let hasL = false;
+      let hasH = false;
+      (rows || []).forEach(row => {
+        const label = String((row || [])[20] || "").trim().toLowerCase();
+        if (!label.includes("chevron angle")) return;
+        const angle = Number(String((row || [])[24] || "").replace(/,/g, ""));
+        if (!Number.isFinite(angle)) return;
+        if (angle >= 45) hasH = true;
+        else hasL = true;
+      });
+      if (hasH && hasL) return "M";
+      if (hasH) return "H";
+      if (hasL) return "L";
+      return "";
+    }
+
+    function htriChannelText(prefix, count, channelType) {
+      const p = String(prefix || "").trim();
+      const c = String(count || "").trim();
+      const type = String(channelType || "").trim();
+      return type ? `${p} x ${type} ${c}`.trim() : `${p} x ${c}`.trim();
+    }
+
     function splitHtriPair(value) {
       const parts = String(value || "").split(/\s*\/\s*|\s*,\s*/).map(part => part.trim());
       return [parts[0] || "", parts[1] || ""];
@@ -4810,6 +4834,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         "Transfer Rate Service": transfer.values[1] || "",
         "Area Per Unit": area.values[0] || "",
         "Passes/Channels": passes.values,
+        "Chevron Channel Type": kind === "GPHE" ? htriChevronChannelType(fin) : "",
         "Plate Thickness": thickness.values[0] || "",
         "Nominal Plate Gap": gap.values[0] || "",
         "Plate Material": plateMaterial,

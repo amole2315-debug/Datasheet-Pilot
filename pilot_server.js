@@ -54,6 +54,12 @@ function writeHtriExcelCopyScript(tempRoot) {
   );
   script = patchScript(
     script,
+    /function Add-One\(\$value\) \{\r?\n  \$n = Num \$value\r?\n  if \(\$null -eq \$n\) \{ return \$value \}\r?\n  return \[int\]\(\$n \+ 1\)\r?\n\}/,
+    "function Add-One($value) {\r\n  $n = Num $value\r\n  if ($null -eq $n) { return $value }\r\n  return [int]($n + 1)\r\n}\r\n\r\nfunction Chevron-ChannelType($sheet) {\r\n  if ($null -eq $sheet) { return '' }\r\n  $hasL = $false\r\n  $hasH = $false\r\n  for ($row = 1; $row -le 80; $row++) {\r\n    $label = (T $sheet ('U' + $row))\r\n    if ($label.ToLowerInvariant().IndexOf('chevron angle') -lt 0) { continue }\r\n    $angle = Num (T $sheet ('Y' + $row))\r\n    if ($null -eq $angle) { continue }\r\n    if ($angle -ge 45.0) { $hasH = $true } else { $hasL = $true }\r\n  }\r\n  if ($hasH -and $hasL) { return 'M' }\r\n  if ($hasH) { return 'H' }\r\n  if ($hasL) { return 'L' }\r\n  return ''\r\n}\r\n\r\nfunction Channel-Text($prefix, $count, [string]$channelType) {\r\n  $p = ([string]$prefix).Trim()\r\n  $c = ([string]$count).Trim()\r\n  $t = ([string]$channelType).Trim()\r\n  if ([string]::IsNullOrWhiteSpace($t)) { return ($p + ' x ' + $c).Trim() }\r\n  return ($p + ' x ' + $t + ' ' + $c).Trim()\r\n}",
+    'chevron channel helpers'
+  );
+  script = patchScript(
+    script,
     /function Set-ModelPrefix\(\[string\]\$model, \[string\]\$material\) \{\r?\n  \$m = \(\[string\]\$model\)\.Trim\(\)\r?\n  if \(\$m -notmatch '\^\(MC\|MS\)'\) \{ return \$m \}\r?\n  if \(\$material -match 'Stainless\|SUS\|\^MS\$'\) \{ return \(\$m -replace '\^\(MC\|MS\)', 'MS'\) \}\r?\n  if \(\$material -match 'Copper\|\^MC\$'\) \{ return \(\$m -replace '\^\(MC\|MS\)', 'MC'\) \}\r?\n  return \$m\r?\n\}/,
     "function Set-ModelPrefix([string]$model, [string]$material) {\r\n  $m = ([string]$model).Trim()\r\n  if ($m.Length -lt 2) { return $m }\r\n  $prefix = $m.Substring(0, 2)\r\n  if ($prefix -ne 'MC') {\r\n    if ($prefix -ne 'MS') { return $m }\r\n  }\r\n  if ($m.Length -gt 2) { $rest = $m.Substring(2) } else { $rest = '' }\r\n  $mat = ([string]$material).Trim().ToUpperInvariant()\r\n  if ($mat.IndexOf('STAINLESS') -ge 0) { return 'MS' + $rest }\r\n  if ($mat.IndexOf('SUS') -ge 0) { return 'MS' + $rest }\r\n  if ($mat -eq 'MS') { return 'MS' + $rest }\r\n  if ($mat.IndexOf('COPPER') -ge 0) { return 'MC' + $rest }\r\n  if ($mat -eq 'MC') { return 'MC' + $rest }\r\n  return $m\r\n}",
     'model prefix without regex'
@@ -85,6 +91,12 @@ function writeHtriExcelCopyScript(tempRoot) {
   script = patchAll(script, /Addr \$isGphe 'E46' 'C41'/g, "Addr $isGphe 'E45' 'C41'", 'design pressure min address');
   script = patchAll(script, /Addr \$isGphe 'G46' 'G41'/g, "Addr $isGphe 'G45' 'G41'", 'design pressure max address');
   script = patchAll(script, /Addr \$isGphe 'J46' 'J41'/g, "Addr $isGphe 'J45' 'J41'", 'design pressure unit address');
+  script = patchScript(
+    script,
+    /    Put \$ds 'C41' \(\(T \$api 'N37'\) \+ ' x ' \+ \(T \$api 'Q37'\)\)\r?\n    Put \$ds 'G41' \(\(T \$api 'X37'\) \+ ' x ' \+ \(Add-One \(T \$api 'AA37'\)\)\)/,
+    "    $channelType = Chevron-ChannelType $fin\r\n    Put $ds 'C41' (Channel-Text (T $api 'N37') (T $api 'Q37') $channelType)\r\n    Put $ds 'G41' (Channel-Text (T $api 'X37') (Add-One (T $api 'AA37')) $channelType)",
+    'GPHE chevron channel type'
+  );
   fs.writeFileSync(psPath, script, 'utf8');
   return psPath;
 }
