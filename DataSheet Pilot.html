@@ -1505,6 +1505,18 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       });
     }
 
+    function setupTouchedInputs(container) {
+      container.querySelectorAll("[data-key]").forEach(input => {
+        if (input.type === "hidden") return;
+        const markTouched = () => {
+          input.dataset.touched = "true";
+        };
+        input.addEventListener("focus", markTouched);
+        input.addEventListener("input", markTouched);
+        input.addEventListener("change", markTouched);
+      });
+    }
+
     function selectRow(label, key, values, selectedValue = "") {
       return `
         <div class="field-row">
@@ -1793,6 +1805,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if (field === "Unit Conversion") setupUnitConversionForm();
       setupUnitInfoRefresh(field);
       setupClearDefaultInputs(dynamicForm);
+      setupTouchedInputs(dynamicForm);
     }
 
     function setupUnitInfoRefresh(field) {
@@ -2038,10 +2051,12 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
     function collectFormValues() {
       const task = { field: fieldSelect.value, mode: "set" };
-      const sparseConnection = isConnectionField(task.field) && dynamicForm.querySelector("[data-key='connectionSparse']")?.checked;
+      const connectionField = isConnectionField(task.field);
+      const sparseConnection = connectionField && dynamicForm.querySelector("[data-key='connectionSparse']")?.checked;
       const keepEmptyConnectionKeys = new Set(["connectionSparse", "productScope", "connectionScope", "bpheConnectionScope", "bpheConnectionModel", "htriBpheConnectionModel"]);
       dynamicForm.querySelectorAll("[data-key]").forEach(input => {
         const key = input.dataset.key;
+        if (connectionField && !keepEmptyConnectionKeys.has(key) && input.dataset.touched !== "true") return;
         if (sparseConnection && !keepEmptyConnectionKeys.has(key)) {
           const value = input.type === "checkbox" ? input.checked : input.value;
           if (value === "" || value === false || value === null || value === undefined) return;
@@ -2056,6 +2071,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           task[key] = input.value;
         }
       });
+      if (connectionField) task.connectionSparse = true;
       return task;
     }
 
@@ -2169,6 +2185,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         } else if (Object.prototype.hasOwnProperty.call(task, key)) {
           input.value = task[key] || "";
         }
+        if (Object.prototype.hasOwnProperty.call(task, key)) input.dataset.touched = "true";
       });
       if (isConnectionField(task.field)) {
         const standard = dynamicForm.querySelector("[data-key='standard']");
