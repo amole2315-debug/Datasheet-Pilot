@@ -99,6 +99,18 @@ function writeHtriExcelCopyScript(tempRoot) {
   );
   script = patchScript(
     script,
+    /\$api = Sheet-Like \$source 'API\\s\*662'\r?\n  \$out = Sheet-Like \$source 'Output\\s\*Summary'\r?\n  \$fin = Sheet-Like \$source 'Final\\s\*Results'/,
+    "$api = Sheet-Like $source 'API[\\s\\-_]*662'\r\n  $out = Sheet-Like $source 'Output[\\s\\-_]*Summary'\r\n  $fin = Sheet-Like $source 'Final[\\s\\-_]*Results'",
+    'HTRI source sheet matching'
+  );
+  script = patchScript(
+    script,
+    /  if \(\$null -eq \$api\) \{ throw 'Source API 662 sheet not found\.' \}/,
+    "  if ($null -eq $api) { $sheetNames = @($source.Worksheets | ForEach-Object { $_.Name }) -join ', '; throw ('Source API 662 sheet not found. Sheets: ' + $sheetNames) }",
+    'HTRI source sheet error'
+  );
+  script = patchScript(
+    script,
     /    \$sourceBase = \[IO\.Path\]::GetFileNameWithoutExtension\(\$item\.name\)\r?\n    \$modelForName = Safe-Part \(Model-FromName \$sourceBase\) 'HTRI'\r?\n    \$modelForName = Safe-Part \(Set-ModelPrefix \$modelForName \(Override-Value \$item 'Soldering Material' ''\)\) \$modelForName\r?\n    \$platesForName = Plates-FromName \$sourceBase\r?\n    if \(\[string\]::IsNullOrWhiteSpace\(\$platesForName\)\) \{\r?\n      \$fileBase = \$modelForName \+ '_Datasheet'\r?\n    \} else \{\r?\n      \$fileBase = \$modelForName \+ '_' \+ \$platesForName \+ 'pl_Datasheet'\r?\n    \}\r?\n    \$outPath = Unique-Path \(Join-Path \$OutputDir \(\$fileBase \+ '\.xlsm'\)\)/,
     "    $sourceBase = [IO.Path]::GetFileNameWithoutExtension($item.name)\r\n    $fileBase = Safe-Part ($sourceBase + '_datasheet') 'HTRI_datasheet'\r\n    $outPath = Unique-Path (Join-Path $OutputDir ($fileBase + '.xlsm'))",
     'original output filename'
