@@ -9,6 +9,7 @@ dist/
 output/
 extracted/
 copytest/
+pilot_server.log
 
 # Broken-state backups created during recovery
 *_broken_*.html

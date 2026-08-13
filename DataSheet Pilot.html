@@ -4380,6 +4380,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if (field === "Material") setupConnectionForm(htriDynamicForm);
       if (field === "Unit Conversion") setupHtriUnitConversionForm();
       setupClearDefaultInputs(htriDynamicForm);
+      setupTouchedInputs(htriDynamicForm);
     }
 
     function setupHtriUnitConversionForm() {
@@ -4395,10 +4396,12 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
     function collectHtriFormValues() {
       const task = { field: htriFieldSelect.value, mode: "set" };
-      const sparseConnection = task.field === "Material" && htriDynamicForm.querySelector("[data-key='connectionSparse']")?.checked;
+      const materialField = task.field === "Material";
+      const sparseConnection = materialField && htriDynamicForm.querySelector("[data-key='connectionSparse']")?.checked;
       const keepEmptyConnectionKeys = new Set(["connectionSparse", "productScope", "connectionScope", "bpheConnectionScope", "bpheConnectionModel", "htriBpheConnectionModel"]);
       htriDynamicForm.querySelectorAll("[data-key]").forEach(input => {
         const key = input.dataset.key;
+        if (materialField && !keepEmptyConnectionKeys.has(key) && input.dataset.touched !== "true") return;
         if (sparseConnection && !keepEmptyConnectionKeys.has(key)) {
           const value = input.type === "checkbox" ? input.checked : input.value;
           if (value === "" || value === false || value === null || value === undefined) return;
@@ -4407,6 +4410,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         else if (input.type === "checkbox") task[key] = input.checked;
         else task[key] = input.value;
       });
+      if (materialField) task.connectionSparse = true;
       return task;
     }
 
@@ -4492,6 +4496,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           if (input.type === "checkbox") input.checked = Boolean(task[key]);
           else input.value = task[key] || "";
         }
+        if (Object.prototype.hasOwnProperty.call(task, key)) input.dataset.touched = "true";
       });
       updateHtriApplyButton();
     }
