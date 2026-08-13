@@ -3347,7 +3347,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     async function outputNameFor(item, editor) {
       const base = item.name.replace(/\\/g, "/").split("/").pop().replace(/\.docx$/i, "");
       const pattern = normalize(renamePattern?.value || "");
-      if (!renameOutput.checked && !pattern) return `${base}_corrected.docx`;
+      if (!pattern) return `${safeFilenamePart(base, "datasheet")}_datasheet.docx`;
       const info = await editor.filenameInfo();
       if (pattern) return formatRenamePattern(pattern, item, info);
       const itemNo = safeFilenamePart(info.itemNo, "");
@@ -4969,9 +4969,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }
 
     function htriOutputName(item, summary, extension) {
-      const model = safeFilenamePart(summary["Model"], "HTRI");
-      const plates = safeFilenamePart(plateText(summary["Number of plates"]), "");
-      return [model, plates, "Datasheet"].filter(Boolean).join("_") + "." + extension;
+      const sourceName = item?.file?.name || item?.name || "HTRI";
+      const base = sourceName.replace(/\\/g, "/").split("/").pop().replace(/\.[^.]+$/i, "");
+      return `${safeFilenamePart(base, "HTRI")}_datasheet.${extension}`;
     }
 
     async function convertHtriViaServer(selected) {

@@ -97,6 +97,24 @@ function writeHtriExcelCopyScript(tempRoot) {
     "    $channelType = Chevron-ChannelType $fin\r\n    Put $ds 'C41' (Channel-Text (T $api 'N37') (T $api 'Q37') $channelType)\r\n    Put $ds 'G41' (Channel-Text (T $api 'X37') (Add-One (T $api 'AA37')) $channelType)",
     'GPHE chevron channel type'
   );
+  script = patchScript(
+    script,
+    /    \$sourceBase = \[IO\.Path\]::GetFileNameWithoutExtension\(\$item\.name\)\r?\n    \$modelForName = Safe-Part \(Model-FromName \$sourceBase\) 'HTRI'\r?\n    \$modelForName = Safe-Part \(Set-ModelPrefix \$modelForName \(Override-Value \$item 'Soldering Material' ''\)\) \$modelForName\r?\n    \$platesForName = Plates-FromName \$sourceBase\r?\n    if \(\[string\]::IsNullOrWhiteSpace\(\$platesForName\)\) \{\r?\n      \$fileBase = \$modelForName \+ '_Datasheet'\r?\n    \} else \{\r?\n      \$fileBase = \$modelForName \+ '_' \+ \$platesForName \+ 'pl_Datasheet'\r?\n    \}\r?\n    \$outPath = Unique-Path \(Join-Path \$OutputDir \(\$fileBase \+ '\.xlsm'\)\)/,
+    "    $sourceBase = [IO.Path]::GetFileNameWithoutExtension($item.name)\r\n    $fileBase = Safe-Part ($sourceBase + '_datasheet') 'HTRI_datasheet'\r\n    $outPath = Unique-Path (Join-Path $OutputDir ($fileBase + '.xlsm'))",
+    'original output filename'
+  );
+  script = patchScript(
+    script,
+    /\$excel\.DisplayAlerts = \$false/,
+    "$excel.DisplayAlerts = $false\r\ntry { $excel.Calculation = -4135 } catch {}",
+    'manual calculation mode'
+  );
+  script = patchScript(
+    script,
+    /      \$excel\.CalculateFullRebuild\(\)\r?\n      \$target\.SaveAs\(\$outPath, 52\)/,
+    "      $target.SaveAs($outPath, 52)",
+    'skip full recalculation'
+  );
   fs.writeFileSync(psPath, script, 'utf8');
   return psPath;
 }
