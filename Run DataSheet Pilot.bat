@@ -7,5 +7,5 @@ if errorlevel 1 (
   exit /b 1
 )
 start "" "http://127.0.0.1:8787/"
-node "%~dp0pilot_server.js"
-pause
+start "DataSheet Pilot Server" /min cmd /c "node ""%~dp0pilot_server.js"" >> ""%~dp0pilot_server.log"" 2>&1"
+exit /b
