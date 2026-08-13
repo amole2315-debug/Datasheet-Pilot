@@ -55,7 +55,7 @@ function writeHtriExcelCopyScript(tempRoot) {
   script = patchScript(
     script,
     /function Add-One\(\$value\) \{\r?\n  \$n = Num \$value\r?\n  if \(\$null -eq \$n\) \{ return \$value \}\r?\n  return \[int\]\(\$n \+ 1\)\r?\n\}/,
-    "function Add-One($value) {\r\n  $n = Num $value\r\n  if ($null -eq $n) { return $value }\r\n  return [int]($n + 1)\r\n}\r\n\r\nfunction Chevron-ChannelType($sheet) {\r\n  if ($null -eq $sheet) { return '' }\r\n  $hasL = $false\r\n  $hasH = $false\r\n  $range = $sheet.UsedRange\r\n  $rowStart = [int]$range.Row\r\n  $rowEnd = $rowStart + [int]$range.Rows.Count - 1\r\n  $colStart = [int]$range.Column\r\n  $colEnd = $colStart + [int]$range.Columns.Count - 1\r\n  for ($row = $rowStart; $row -le $rowEnd; $row++) {\r\n    for ($col = $colStart; $col -le $colEnd; $col++) {\r\n      $label = ([string]$sheet.Cells.Item($row, $col).Text).Trim()\r\n      if ($label.ToLowerInvariant().IndexOf('chevron angle') -lt 0) { continue }\r\n      for ($valueCol = $col + 1; $valueCol -le $colEnd; $valueCol++) {\r\n        $angle = Num ([string]$sheet.Cells.Item($row, $valueCol).Text)\r\n        if ($null -eq $angle) { continue }\r\n        if ($angle -ge 45.0) { $hasH = $true } else { $hasL = $true }\r\n        break\r\n      }\r\n    }\r\n  }\r\n  if ($hasH -and $hasL) { return 'M' }\r\n  if ($hasH) { return 'H' }\r\n  if ($hasL) { return 'L' }\r\n  return ''\r\n}\r\n\r\nfunction Channel-Text($prefix, $count, [string]$channelType) {\r\n  $p = ([string]$prefix).Trim()\r\n  $c = ([string]$count).Trim()\r\n  $t = ([string]$channelType).Trim()\r\n  if ([string]::IsNullOrWhiteSpace($t)) { return ($p + ' x ' + $c).Trim() }\r\n  return ($p + ' x ' + $t + ' ' + $c).Trim()\r\n}",
+    "function Add-One($value) {\r\n  $n = Num $value\r\n  if ($null -eq $n) { return $value }\r\n  return [int]($n + 1)\r\n}\r\n\r\nfunction Chevron-ChannelType($sheet) {\r\n  if ($null -eq $sheet) { return '' }\r\n  $hasL = $false\r\n  $hasH = $false\r\n  $range = $sheet.UsedRange\r\n  try { $cell = $range.Find('Chevron angle') } catch { $cell = $null }\r\n  if ($null -eq $cell) { return '' }\r\n  $firstAddress = $cell.Address($false, $false)\r\n  $colEnd = [int]$range.Column + [int]$range.Columns.Count - 1\r\n  do {\r\n    $row = [int]$cell.Row\r\n    $col = [int]$cell.Column\r\n    $maxLookAhead = [Math]::Min($col + 12, $colEnd)\r\n    for ($valueCol = $col + 1; $valueCol -le $maxLookAhead; $valueCol++) {\r\n      $angle = Num ([string]$sheet.Cells.Item($row, $valueCol).Text)\r\n      if ($null -eq $angle) { continue }\r\n      if ($angle -ge 45.0) { $hasH = $true } else { $hasL = $true }\r\n      break\r\n    }\r\n    try { $cell = $range.FindNext($cell) } catch { $cell = $null }\r\n  } while ($null -ne $cell -and $cell.Address($false, $false) -ne $firstAddress)\r\n  if ($hasH -and $hasL) { return 'M' }\r\n  if ($hasH) { return 'H' }\r\n  if ($hasL) { return 'L' }\r\n  return ''\r\n}\r\n\r\nfunction Channel-Text($prefix, $count, [string]$channelType) {\r\n  $p = ([string]$prefix).Trim()\r\n  $c = ([string]$count).Trim()\r\n  $t = ([string]$channelType).Trim()\r\n  if ([string]::IsNullOrWhiteSpace($t)) { return ($p + ' x ' + $c).Trim() }\r\n  return ($p + ' x ' + $t + ' ' + $c).Trim()\r\n}",
     'chevron channel helpers'
   );
   script = patchScript(
@@ -184,6 +184,7 @@ function parseMultipart(buffer, contentType) {
 
 async function handleHtriConvert(req, res) {
   try {
+    const startedAt = Date.now();
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'datasheet-pilot-'));
     const uploadDir = path.join(tempRoot, 'uploads');
     const outputDir = path.join(tempRoot, 'out');
@@ -229,6 +230,7 @@ async function handleHtriConvert(req, res) {
         const result = JSON.parse(line);
         const outPath = result.path;
         const filename = path.basename(outPath);
+        console.log(`[HTRI] convert done in ${((Date.now() - startedAt) / 1000).toFixed(1)}s: ${filename}`);
         res.writeHead(200, {
           'Content-Type': result.type === 'zip' ? 'application/zip' : 'application/vnd.ms-excel.sheet.macroEnabled.12',
           'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`,
